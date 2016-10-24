@@ -1,22 +1,19 @@
-//var b = require('bonescript')
+var bone = require('bonescript');
 
-var Devices = require('Devices.js');
-var Globals = require('Globals.js');
-var Setup = require('Setup.js');
+//Import all the device libraries for ease of use.
+var lib = require('./lib/index.js');
 
-var d = new Devices();
-var setup = new Setup();
-var global = new Globals();
+//Import our devices
+var d = require('./Devices.js');
 
-//Turn on indicator LED
-b.digitalWrite(d.IndicatorLED, 1);
-
-//Stop Button
-var stop = false;
+//Global Variables
+//Code Completeion flag
 var codeComplete = false;
 
+d.indicatorLED.setLED(1);
+
 //Autonomous Loop. Run the code until the button is pressed, or until we finish the code.
-while(stop == false && codeComplete == false)
+while(codeComplete == false)
 {
 	
 }
