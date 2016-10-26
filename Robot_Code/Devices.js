@@ -16,5 +16,5 @@ var stopButton = new lib.Button(pinStopButton);
 //Package all devices into this exports array for public access
 module.exports = {
 	indicatorLED: indicatorLED,
-	
+	stopButton: stopButton,
 }

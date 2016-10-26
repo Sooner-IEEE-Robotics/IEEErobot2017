@@ -8,7 +8,7 @@ var _state = 0;
 var LED = function(pin)
 {
 	this.pin = pin;
-	bone.pinMode(pin, bone.OUTPUT);
+	bone.pinMode(this.pin, bone.OUTPUT);
 }
 
 //Set the pin name of the LED

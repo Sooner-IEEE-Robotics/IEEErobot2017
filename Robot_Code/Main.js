@@ -10,10 +10,16 @@ var d = require('./Devices.js');
 //Code Completeion flag
 var codeComplete = false;
 
-d.indicatorLED.setLED(1);
+console.log("Robot Code Running!");
 
+d.indicatorLED.setBrightness(1);
+
+/*
 //Autonomous Loop. Run the code until the button is pressed, or until we finish the code.
 while(codeComplete == false)
 {
 	
-}
+}*/
+
+//close the program
+process.exit();

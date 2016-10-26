@@ -1,4 +1,3 @@
 #!/bin/bash
 
-java Test
-java -jar /root/robot.jar 
+node /root/robot_code/Main.js 
