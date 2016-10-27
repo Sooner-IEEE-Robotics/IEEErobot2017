@@ -24,4 +24,4 @@ PWM.prototype.setOutput = function(output)
 }
 
 //Exports the PWM module for global usage
-module.exports = Button;
+module.exports = PWM;
