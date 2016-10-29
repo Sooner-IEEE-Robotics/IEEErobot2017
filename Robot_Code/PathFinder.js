@@ -5,13 +5,13 @@
 //Build your field: 1 represents unvisited squares, 2 represents visited squares, 3 represents obstacles, and 4 is the robot itself.
 var fieldForTesting =
 [
-	[1, 1, 1, 1, 1, 1, 1],
-	[1, 1, 1, 1, 1, 1, 1],
-	[1, 1, 1, 1, 1, 1, 1],
-	[1, 1, 3, 4, 2, 2, 2],
-	[2, 2, 2, 2, 2, 2, 2],
-	[2, 2, 2, 2, 2, 2, 2],
-	[2, 2, 2, 2, 2, 2, 2]
+	[3, 3, 3, 3, 3, 3, 3],
+	[3, 1, 1, 1, 1, 1, 3],
+	[3, 1, 1, 1, 1, 1, 3],
+	[3, 1, 4, 1, 1, 1, 3],
+	[3, 1, 1, 1, 1, 1, 3],
+	[3, 1, 1, 1, 1, 1, 3],
+	[3, 3, 3, 3, 3, 3, 3]
 ]
 
 //The program allows for more and more redundant steps as it fails to find optimal paths. Decide when you want it to just give up:
@@ -168,7 +168,12 @@ var game =
 					//If I am no longer being branched to by any squares, revert to my original status. I haven't been visited on the planned path, so I shouldn't necessarily be closed.
 					if(this.squaresBranchedFromStack.length == 0)
 					{
-						this.setStatus(this.originalStatus);						
+						this.setStatus(this.originalStatus);
+
+						if(typeof previousSquare != "undefined")
+						{
+							//console.log("Backtracking to " + previousSquare.getCoordinates());
+						}						
 					}
 
 					return previousSquare; //Will be undefined if there was no previous square that branched to me.
@@ -180,6 +185,7 @@ var game =
 			{
 				square.addSquareToStack(this);
 				square.addAllDirectionsToStack();
+				//console.log("Branching to " + square.getCoordinates());
 			};			
 		};
 
