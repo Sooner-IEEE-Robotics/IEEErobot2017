@@ -5,13 +5,13 @@
 //Build your field: 1 represents unvisited squares, 2 represents visited squares, 3 represents obstacles, and 4 is the robot itself.
 var fieldForTesting =
 [
-	[3, 3, 3, 3, 3, 3, 3],
-	[3, 1, 1, 1, 1, 1, 3],
-	[3, 1, 1, 1, 1, 1, 3],
-	[3, 1, 4, 1, 1, 1, 3],
-	[3, 1, 1, 1, 1, 1, 3],
-	[3, 1, 1, 1, 1, 1, 3],
-	[3, 3, 3, 3, 3, 3, 3]
+	[1, 1, 1, 1, 1, 1, 1],
+	[1, 1, 1, 1, 1, 1, 1],
+	[1, 1, 1, 1, 1, 1, 1],
+	[1, 1, 3, 4, 2, 2, 2],
+	[2, 2, 2, 2, 2, 2, 2],
+	[2, 2, 2, 2, 2, 2, 2],
+	[2, 2, 2, 2, 2, 2, 2]
 ]
 
 //The program allows for more and more redundant steps as it fails to find optimal paths. Decide when you want it to just give up:
