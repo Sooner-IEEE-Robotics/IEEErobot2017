@@ -8,14 +8,22 @@ var fieldForTesting =
 	[1, 1, 1, 1, 1, 1, 1],
 	[1, 1, 1, 1, 1, 1, 1],
 	[1, 1, 1, 1, 1, 1, 1],
-	[1, 1, 3, 4, 2, 2, 2],
-	[2, 2, 2, 2, 2, 2, 2],
-	[2, 2, 2, 2, 2, 2, 2],
+	[1, 1, 1, 1, 1, 1, 1],
+	[1, 1, 1, 1, 1, 1, 1],
+	[1, 3, 4, 2, 2, 2, 2],
 	[2, 2, 2, 2, 2, 2, 2]
 ]
 
 //The program allows for more and more redundant steps as it fails to find optimal paths. Decide when you want it to just give up:
-var allowedRedundantSteps = 5;
+var allowedRedundantSteps = 3;
+
+//With a lot of open squares on the board, looking for a path with only a few redundant squares can take an absurd amount of time. 
+//After searching for this many milliseconds, the program will decide to speed up the calculation but accept another redundant square on the path. 
+var initialMillisecondsBeforeIncreasingRedundantSteps = 5000;
+
+//Every time the program increases the number of redundant steps it will aim for, it increases the milliseconds it is willing to wait by this much. 
+//If this is zero, it waits the same amount no matter how many redundant steps it is allowing.
+var additionalMillisecondsBeforeIncreasingRedundantSteps = 7500;
 
 //That's all you have to do. 
 //The program will output your path to the console as a series of coordinates (vertical then horizontal) according to the following diagram:
@@ -32,13 +40,32 @@ var allowedRedundantSteps = 5;
 
 
 
-
+//Constants to use throughout code.
 var globals = 
 {
 	STATUS_OPEN:1, STATUS_CLOSED:2, STATUS_FORBIDDEN:3, STATUS_OCCUPIED:4, STATUS_OUTOFBOUNDS:5, 
 	DIRECTION_NORTH:6, DIRECTION_EAST:7, DIRECTION_SOUTH:8, DIRECTION_WEST:9, DIRECTION_NONE:10, ERROR_NOSUCHSQUARE:11
-};	
+};
 
+//Keeps track of how many milliseconds have elapsed since it last began counting.
+var timer =
+{
+	startTime: 0,
+
+	//Starts the timer.
+    beginCounting: function()
+    {
+    	this.startTime = Date.now();
+    },
+
+    //Returns the elapsed time since the timer was started.
+    getElapsedTime: function()
+    {
+    	return Date.now() - this.startTime;
+    }   
+}	
+
+//An object representing a round at the competition.
 var game = 
 {
 	field: fieldForTesting,
@@ -92,7 +119,7 @@ var game =
 	//Returns a path that closes all the open squares on the field while visiting the fewest possible closed squares. Returns undefined if it fails to find a path after
 	//working up to allowedClosedSquaresOnPath. WARNING: If you allow too many closed squares and a path does not exist with a reasonably small number of closed
 	//squares, method may run for a ridiculous amount of time or cause memory errors.
-	calculateForayPath: function(allowedClosedSquaresOnPath)
+	calculateForayPath: function(allowedClosedSquaresOnPath, initialMillisecondsBeforeIncreasingAllowedClosedSquares, additionalMillisecondsBeforeIncreasingAllowedClosedSquares)
 	{
 		//Field squares with special functionality for backtracking.
 		//row and column: coordinates of square on its field.
@@ -270,6 +297,20 @@ var game =
 				}
 
 				return false;
+			},
+
+			//Reverts all squares on the field to their original statuses and empties their stacks.
+			resetSquares: function()
+			{
+				for(let row of this.squares) //For each row in the field...
+				{
+					for(let square of row) //For each square in the row...
+					{
+						square.setStatus(square.originalStatus);
+						square.directionsToConsiderStack = [];
+						square.squaresBranchedFromStack = [];
+					}
+				}
 			}
 		}
 
@@ -283,24 +324,36 @@ var game =
 		var actionOfCurrentSquare;
 		var nextSquareToBranchTo;
 		var closedSquaresOnPathSoFar = 0;
-		var triedAllPossiblePaths;		
+		var triedAllPossiblePaths;	
+		var searchedForTooLong;	
+		var millisecondsBeforeIncreasingAllowedClosedSquares;
 		
 		//Do backtracking to find a path that will let the robot close all the open squares while visiting the fewest possible closed squares (path w/ fewest redundant steps).
 		for(var allowedClosedSquares = 0; allowedClosedSquares <= allowedClosedSquaresOnPath; allowedClosedSquares++)
 		{
 			//Output for debugging. Will be removed eventually.
-			console.log("Now looking for a path with " + allowedClosedSquares + " redundant steps");
+			console.log("Now looking for a path with " + allowedClosedSquares + " redundant steps.");
 
-			//We're just starting with this number of closed squares, so we haven't tried any paths yet.
+			//We're just starting with this number of closed squares, so we haven't tried all the paths or searched too long yet.
 			triedAllPossiblePaths = false;
+			searchedForTooLong = false;
 
 			//For each number of allowed closed squares, we start our search at the occupied square.
 			currentSquare = fieldForBacktracking.getSquare(initialSquareCoordinates[0], initialSquareCoordinates[1]);	
 
 			//Since nothing will branch to the initial square, we need to tell it to consider all of the directions.
 			currentSquare.addAllDirectionsToStack();
-			
-			while((!triedAllPossiblePaths)) //While there are still paths left to search with sufficiently few closed squares...
+
+			//We will try for only so long to find a path with each number of redundant steps before compromising on the redundant steps for the sake of time.
+			//General, we will be willing to try longer if we are on a higher number of allowed closed squares.
+			millisecondsBeforeIncreasingAllowedClosedSquares = initialMillisecondsBeforeIncreasingAllowedClosedSquares + 
+				allowedClosedSquares * additionalMillisecondsBeforeIncreasingAllowedClosedSquares;
+
+			//We start the timer now.
+			timer.beginCounting();
+
+			//While there are still paths left to search with sufficiently few closed squares and we have not been searching too long...
+			while((!triedAllPossiblePaths) && (!searchedForTooLong)) 
 			{
 				if((actionOfCurrentSquare = currentSquare.getNextAction()) == globals.DIRECTION_NORTH 
 					|| actionOfCurrentSquare == globals.DIRECTION_EAST || actionOfCurrentSquare == globals.DIRECTION_SOUTH
@@ -360,7 +413,29 @@ var game =
 					}
 				}
 				
-			}	
+				if(timer.getElapsedTime() > millisecondsBeforeIncreasingAllowedClosedSquares) //We have searched for too long with this number of closed squares.
+				{
+					searchedForTooLong = true;
+
+					//Force the squares back to their starting states and return closedSquaresOnPath to 0.
+					//These things would have happened naturally in the process of searching all the paths, but we stopped it midway.
+					fieldForBacktracking.resetSquares();
+					closedSquaresOnPathSoFar = 0;
+				}
+						
+			}
+
+			//Output for debugging. Will be removed eventually.
+			if(!triedAllPossiblePaths) 
+			{
+				console.log(timer.getElapsedTime() + " milliseconds passed. Gave up on finding a path with "
+					+ "only " + allowedClosedSquares + " redundant steps."); 
+				
+			}
+			else
+			{
+				console.log("No paths exist with only " + allowedClosedSquares + " redundant steps.");
+			}				
 		}
 
 		//Failed to find a path with as few closed squares as required.
@@ -368,8 +443,8 @@ var game =
 	}
 }
 
-//Outputting your path to the console:
-var calculatedPath = game.calculateForayPath(allowedRedundantSteps);
+//Outputting your results to the console:
+var calculatedPath = game.calculateForayPath(allowedRedundantSteps, initialMillisecondsBeforeIncreasingRedundantSteps, additionalMillisecondsBeforeIncreasingRedundantSteps);
 if(typeof calculatedPath != "undefined")
 {
 	console.log("=======Your Path========")
@@ -380,5 +455,6 @@ if(typeof calculatedPath != "undefined")
 }
 else
 {
-	console.log("Failed to find a path with fewer than " + (allowedRedundantSteps + 1) + " redundant steps. Try increasing the allowed redundant steps.")
+	console.log("Failed to find a path with fewer than " + (allowedRedundantSteps + 1) + " redundant steps. " +
+		"Try increasing the allowed redundant steps or the milliseconds before increasing them.")
 }
