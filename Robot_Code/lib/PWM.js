@@ -8,6 +8,7 @@ var bone = require('bonescript');
 //Instance variables for PWM
 var pin = "";
 var _output = 0;
+var frequency = 2000; //Default value is 2000 Hz
 
 //Setup the PWM pin
 var PWM = function(pin)
@@ -20,7 +21,12 @@ var PWM = function(pin)
 PWM.prototype.setOutput = function(output)
 {
 	this._output = output;
-	bone.analogWrite(this.pin,this._output);
+	bone.analogWrite(this.pin,this._output,this.frequency);
+}
+
+PWM.prototype.setFrequency = function(f)
+{
+	this.frequency = f;
 }
 
 //Exports the PWM module for global usage
