@@ -21,13 +21,15 @@ var PWM = function(pin)
 PWM.prototype.setOutput = function(output)
 {
 	this._output = output;
-	bone.analogWrite(this.pin,this._output,this.frequency);
+	bone.analogWrite(this.pin,this._output,this.frequency,printJSON);
 }
 
 PWM.prototype.setFrequency = function(f)
 {
 	this.frequency = f;
 }
+
+function printJSON(x) { console.log(JSON.stringify(x)); }
 
 //Exports the PWM module for global usage
 module.exports = PWM;
