@@ -3,25 +3,15 @@ var bone = require('bonescript');
 //2D array that contains the board's status
 
 //KEY
-//-1: Starting Square (Yellow)
-//0: Unexplored Square or Empty Square or Obstacle over empty square(Blank)
-//1: Main Tunnel (Red)
-//2: Dead-end Tunnel (Blue)
+//Starting Square (Yellow)
+//Unexplored Square or Empty Square or Obstacle over empty square(Blank)
+//Main Tunnel (Red)
+//Dead-end Tunnel (Blue)
 //Debug Mode Only
-//3: Explored Empty Square (Purple)
-//4: Obstacle over tunnel (Pink)
-//5: Obstacle not over tunnel (Green)
-//6: Future Path (White)
-var board = 
-[
-[0,0,0,0,0,0,0]
-[0,0,0,0,0,0,0]
-[0,0,0,0,0,0,0]
-[0,0,0,0,0,0,0]
-[0,0,0,0,0,0,0]
-[0,0,0,0,0,0,0]
-[-1,0,0,0,0,0,0]
-];
+//Explored Empty Square (Purple)
+//Obstacle over tunnel (Pink)
+//Obstacle not over tunnel (Green)
+//Future Path (White)
 
 var isDebug = false;
 
