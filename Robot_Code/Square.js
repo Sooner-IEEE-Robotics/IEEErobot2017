@@ -9,7 +9,7 @@ var explored = false;
 var mainTunnel = false;
 var deadEnd = false;
 var obstacle = false;
-var start = false;
+var isA7 = false;
 var empty = true;
 var futurePath = true;
 
@@ -38,6 +38,20 @@ var Square = function(row, col)
 	
 	this.directionsToConsiderStack = [];
 	this.squaresBranchedFromStack = [];
+	
+	if(row == 6 && col == 0)
+	{
+		this.isA7 = true;
+	}
+	
+	this.explored = false;
+	this.mainTunnel = false;
+	this.deadEnd = false;
+	this.obstacle = false;
+	this.isA7 = false;
+	this.empty = true;
+	this.futurePath = true;
+	this.occupying = false;
 };
 
 //Set values of the square below
@@ -59,11 +73,6 @@ Square.prototype.setDeadEnd = function(x)
 Square.prototype.setObstacle = function(x)
 {
 	this.obstacle = x;
-}
-
-Square.prototype.setStart = function(x)
-{
-	this.start = x;
 }
 
 Square.prototype.setEmpty = function(x)
@@ -121,10 +130,10 @@ Square.prototype.isOccupied = function()
 //Needs to be run in order to preserve status states.
 Square.prototype.setupSquare = function()
 {
-	this.status = !this.isExplored() && !this.isObstacle();
+	this.status = (!this.isExplored() && !this.isObstacle()) || this.isOccupied();
 	
 	//The square remembers its original status.
-	this.originalStatus = !this.isExplored() && !this.isObstacle();
+	this.originalStatus =  (!this.isExplored() && !this.isObstacle()) || this.isOccupied();
 }
 
 //Returns the square's status.

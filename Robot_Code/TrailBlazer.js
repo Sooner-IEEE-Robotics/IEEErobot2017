@@ -33,7 +33,11 @@ var searchedForTooLong;
 var millisecondsBeforeIncreasingAllowedClosedSquares;
 
 //Constructor to make Node easy
-var TrailBlazer = function(){};
+var TrailBlazer = function()
+{
+	//this.nextSquareToBranchTo = 
+	this.closedSquaresOnPathSoFar = 0;
+};
 
 TrailBlazer.prototype.beginCounting = function()
 {
@@ -154,47 +158,51 @@ TrailBlazer.prototype.calculateForayPath = function(board, currentRow, currentCo
 		console.log("Now looking for a path with " + allowedClosedSquares + " redundant steps.");
 
 		//We're just starting with this number of closed squares, so we haven't tried all the paths or searched too long yet.
-		triedAllPossiblePaths = false;
-		searchedForTooLong = false;
+		this.triedAllPossiblePaths = false;
+		this.searchedForTooLong = false;
 
 		//For each number of allowed closed squares, we start our search at the occupied square.
-		currentSquare = this.getMimickedSquare(initialSquareCoordinates[0], initialSquareCoordinates[1]);	
+		this.currentSquare = this.getMimickedSquare(initialSquareCoordinates[0], initialSquareCoordinates[1]);	
 		
 		//Since nothing will branch to the initial square, we need to tell it to consider all of the directions.
-		currentSquare.addAllDirectionsToStack();
+		this.currentSquare.addAllDirectionsToStack();
 
 		//We will try for only so long to find a path with each number of redundant steps before compromising on the redundant steps for the sake of time.
 		//General, we will be willing to try longer if we are on a higher number of allowed closed squares.
-		millisecondsBeforeIncreasingAllowedClosedSquares = initialMillisecondsBeforeIncreasingRedundantSteps + 
+		this.millisecondsBeforeIncreasingAllowedClosedSquares = initialMillisecondsBeforeIncreasingRedundantSteps + 
 			allowedClosedSquares * additionalMillisecondsBeforeIncreasingRedundantSteps;
 
 		//We start the timer now.
 		this.beginCounting();
 
 		//While there are still paths left to search with sufficiently few closed squares and we have not been searching too long...
-		while((!triedAllPossiblePaths) && (!searchedForTooLong)) 
+		while((!this.triedAllPossiblePaths) && (!this.searchedForTooLong)) 
 		{
-			if((actionOfCurrentSquare = currentSquare.getNextAction()) == globals.DIRECTION_NORTH 
-				|| actionOfCurrentSquare == globals.DIRECTION_EAST || actionOfCurrentSquare == globals.DIRECTION_SOUTH
-				|| actionOfCurrentSquare == globals.DIRECTION_WEST) //The current square has more directions to consider.
+			if((this.actionOfCurrentSquare = this.currentSquare.getNextAction()) == globals.DIRECTION_NORTH 
+				|| this.actionOfCurrentSquare == globals.DIRECTION_EAST || this.actionOfCurrentSquare == globals.DIRECTION_SOUTH
+				|| this.actionOfCurrentSquare == globals.DIRECTION_WEST) //The current square has more directions to consider.
 			{
-				if((nextSquareToBranchTo = this.getSquareRelatively(currentSquare.getCoordinates()[0], currentSquare.getCoordinates()[1], 
-					actionOfCurrentSquare)) != globals.ERROR_NOSUCHSQUARE) //There is a square to branch to in the direction being considered by the current square.
+				this.nextSquareToBranchTo = this.getSquareRelatively(this.currentSquare.getCoordinates()[0], this.currentSquare.getCoordinates()[1], this.actionOfCurrentSquare);
+				
+				//console.log(this.nextSquareToBranchTo != globals.ERROR_NOSUCHSQUARE);
+				
+				if(this.nextSquareToBranchTo != globals.ERROR_NOSUCHSQUARE) //There is a square to branch to in the direction being considered by the current square.
 				{
-					if(nextSquareToBranchTo.getStatus() == true) //The square under consideration for branching is open.
+					
+					if(this.nextSquareToBranchTo.getStatus() == true) //The square under consideration for branching is open.
 					{
-						currentSquare.branchTo(nextSquareToBranchTo);
-						nextSquareToBranchTo.setStatus(false);
-						currentSquare = nextSquareToBranchTo;
+						this.currentSquare.branchTo(this.nextSquareToBranchTo);
+						this.nextSquareToBranchTo.setStatus(false);
+						this.currentSquare = this.nextSquareToBranchTo;
 
 						if(this.openSquaresRemain() == false) //The previously open square was the last one on the field. We found a path that eliminates all the open squares!
 						{
 							//Work backwards from the final square to extract and return the path.
-							var calculatedForayPath = [currentSquare.getCoordinates()];								
-							while(typeof (currentSquare = currentSquare.squaresBranchedFromStack.pop()) != "undefined") //While there is an earlier square in the path... 
+							var calculatedForayPath = [this.currentSquare.getCoordinates()];								
+							while(typeof (this.currentSquare = this.currentSquare.squaresBranchedFromStack.pop()) != "undefined") //While there is an earlier square in the path... 
 							{
 								//Add that earlier square's coordinates to the beginning of the calculatedForayPath array.
-								calculatedForayPath.unshift(currentSquare.getCoordinates());
+								calculatedForayPath.unshift(this.currentSquare.getCoordinates());
 							}
 							//Remove the starting square from the path.
 							calculatedForayPath.shift();
@@ -202,50 +210,52 @@ TrailBlazer.prototype.calculateForayPath = function(board, currentRow, currentCo
 							return calculatedForayPath; //gg no re
 						} 							
 					}
-					else if(nextSquareToBranchTo.getStatus() == false) //The square under consideration for branching is closed.
+					else if(this.nextSquareToBranchTo.getStatus() == false) //The square under consideration for branching is closed.
 					{
-						if(closedSquaresOnPathSoFar < allowedClosedSquares && nextSquareToBranchTo.isObstacle() == false) //We are still accepting closed squares. We can branch in this direction. This Square also should not be an obstacle.
+						//console.log(this.closedSquaresOnPathSoFar);
+							
+						if(this.closedSquaresOnPathSoFar < allowedClosedSquares && this.nextSquareToBranchTo.isObstacle() == false) //We are still accepting closed squares. We can branch in this direction. This Square also should not be an obstacle.
 						{
-							currentSquare.branchTo(nextSquareToBranchTo);
-							currentSquare = nextSquareToBranchTo;
-							closedSquaresOnPathSoFar++;								 
+							this.currentSquare.branchTo(this.nextSquareToBranchTo);
+							this.currentSquare = this.nextSquareToBranchTo;
+							this.closedSquaresOnPathSoFar++;								 
 						}							
 					}						
 				}					
 			}
 			else //The current square has no more directions to consider.
 			{
-				if(typeof actionOfCurrentSquare != "undefined") //The current square was branched to by another square. Let's backtrack to that square.
+				if(typeof this.actionOfCurrentSquare != "undefined") //The current square was branched to by another square. Let's backtrack to that square.
 				{
-					if(currentSquare.getStatus() == false) //The square we are backtracking from is closed even without our being there.
+					if(this.currentSquare.getStatus() == false) //The square we are backtracking from is closed even without our being there.
 					{
 						//By backtracking from this square, we take a redundant step off our path.
-						closedSquaresOnPathSoFar--;
+						this.closedSquaresOnPathSoFar--;
 					}
 
 					//The square that most recently branched to the current square becomes the new current square. 
-					currentSquare = actionOfCurrentSquare;
+					this.currentSquare = this.actionOfCurrentSquare;
 				}
 				else //The current square was the initial square. We're out of options for this number of allowed closed squares.
 				{
-					triedAllPossiblePaths = true;
+					this.triedAllPossiblePaths = true;
 				}
 			}
 			
-			if(this.getElapsedTime() > millisecondsBeforeIncreasingAllowedClosedSquares) //We have searched for too long with this number of closed squares.
+			if(this.getElapsedTime() > this.millisecondsBeforeIncreasingAllowedClosedSquares) //We have searched for too long with this number of closed squares.
 			{
-				searchedForTooLong = true;
+				this.searchedForTooLong = true;
 
 				//Force the squares back to their starting states and return closedSquaresOnPath to 0.
 				//These things would have happened naturally in the process of searching all the paths, but we stopped it midway.
 				this.resetSquares();
-				closedSquaresOnPathSoFar = 0;
+				this.closedSquaresOnPathSoFar = 0;
 			}
 					
 		}
 
 		//Output for debugging. Will be removed eventually.
-		if(!triedAllPossiblePaths) 
+		if(!this.triedAllPossiblePaths) 
 		{
 			console.log(this.getElapsedTime() + " milliseconds passed. Gave up on finding a path with "
 				+ "only " + allowedClosedSquares + " redundant steps."); 

@@ -5,12 +5,14 @@ var square = require('../Square.js');
 var closed =
 [
 	[false, false, false, false, false, false, false],
-	[false, false, false, false, false, false, false],
-	[false, false, false, false, false, false, false],
-	[false, false, false, false, false, false, false],
-	[false, false, false, false, false, false, false],
-	[false, true, true, true, true, true, true],
-	[true, true, true, true, true, true, true]
+    [false, false, false, false, false, false, false],
+    [true, false, false, false, false, false, false],
+    [false, false, false, false, false, false, false],
+    [true, false, false, false, true, false, true],
+    [true, true, true, true, true, true, true],
+    [true, true, true, true, true, true, true]
+
+
 ];
 
 var board = [];
@@ -29,7 +31,6 @@ for(var row = 0; row<7; ++row)
 	board.push(r);
 }
 
-board[6][0].setStart(true);
 board[5][1].setObstacle(true);
 
 var plan = new blaze();
