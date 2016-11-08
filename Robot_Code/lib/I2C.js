@@ -1,13 +1,13 @@
 var bone = require('bonescript');
 
 //Instance variables for I2C
-var address = "";
+var address = "";//Sensor file location
 var iic = '/sys/class/i2c-adapter/i2c-1/';
 
 //Setup the I2C bus
 var I2C = function(deviceName, address)
 {
-	bone.writeTextFile(iic + 'new_device', deviceName);
+	bone.writeTextFile(iic + 'new_device', deviceName);//I2C device location
 	this.address = address;
 };
 
