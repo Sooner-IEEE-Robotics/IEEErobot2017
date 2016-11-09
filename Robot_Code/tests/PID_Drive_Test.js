@@ -13,16 +13,16 @@ var logger = new log();
 //Import all the device libraries for ease of use.
 var lib = require('../lib/index.js');
 
-var leftPinA = "xxxx", leftPinB = "yyyy";
+var leftPinA = "P8_26", leftPinB = "P8_25";
 var leftEncoder = new encoder(leftPinA, leftPinB, 1);
 
-var rightPinA = "xxxx", rightPinB = "yyyy";
+var rightPinA = "P8_28", rightPinB = "P8_27";
 var rightEncoder = new encoder(rightPinA, rightPinB, 1);
 
 //Setup Encoders to use interrupts
 //Replace with actual GPIO pin values
-var pinLeftA = new gpio(1, 'in', 'both');
-var pinRightA = new gpio(3, 'in', 'both');
+var pinLeftA = new gpio(61, 'in', 'both');
+var pinRightA = new gpio(88, 'in', 'both');
 
 var leftMotor = new lib.PWM("zzzz");
 var rightMotor = new lib.PWM("zzzz");
