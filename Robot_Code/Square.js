@@ -62,12 +62,18 @@ Square.prototype.setExplored = function(x)
 
 Square.prototype.setMainTunnel = function(x)
 {
+	//Because these three are mutually exclusive, we should have had a setTunnelType method that drew upon an enum of tunnel types.
+	//But let's keep it like this for now so my stuff works. -Ryan
 	this.mainTunnel = x;
+	this.empty = !x;
+	this.deadEnd = !x;
 }
 
 Square.prototype.setDeadEnd = function(x)
 {
 	this.deadEnd = x;
+	this.empty = !x;
+	this.mainTunnel = !x;	
 }
 
 Square.prototype.setObstacle = function(x)
@@ -78,6 +84,8 @@ Square.prototype.setObstacle = function(x)
 Square.prototype.setEmpty = function(x)
 {
 	this.empty = x;
+	this.deadEnd = !x;
+	this.mainTunnel = !x;
 }
 
 Square.prototype.setOccupied = function(x)
@@ -194,10 +202,10 @@ Square.prototype.getNextAction = function()
 		{
 			this.setStatus(this.originalStatus);
 
-			if(typeof previousSquare != "undefined")
+			/*if(typeof previousSquare != "undefined")
 			{
-				//console.log("Backtracking to " + previousSquare.getCoordinates());
-			}						
+				console.log("Backtracking to " + previousSquare.getCoordinates());
+			}*/						
 		}
 
 		return previousSquare; //Will be undefined if there was no previous square that branched to me.
@@ -212,5 +220,34 @@ Square.prototype.branchTo = function(square)
 	//console.log("Branching to " + square.getCoordinates());
 }
 //End of Backtracking stuff
+
+//Inference stuff
+
+Square.prototype.setAdjacentToMainTunnelEndpoint = function(x)
+{
+	this.adjacentToMainTunnelEndpoint = x;
+}
+
+Square.prototype.isAdjacentToMainTunnelEndpoint = function()
+{
+	return this.adjacentToMainTunnelEndpoint;
+}
+
+Square.prototype.isTunnel = function()
+{
+	return this.deadEnd || this.mainTunnel;
+}
+
+Square.prototype.setPartOfContiguousTunnelLayout = function(x)
+{
+	this.isPartOfContiguousTunnel = x;
+}
+
+Square.prototype.isPartOfContiguousTunnelLayout = function()
+{
+	return this.isPartOfContiguousTunnel;
+}
+
+//End of inference stuff
 
 module.exports = Square;

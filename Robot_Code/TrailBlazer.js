@@ -9,7 +9,7 @@ var globals =
 };
 
 //The program allows for more and more redundant steps as it fails to find optimal paths. Decide when you want it to just give up:
-var allowedRedundantSteps = 3;
+var allowedRedundantSteps = 10;
 
 //With a lot of open squares on the board, looking for a path with only a few redundant squares can take an absurd amount of time. 
 //After searching for this many milliseconds, the program will decide to speed up the calculation but accept another redundant square on the path. 
@@ -184,8 +184,6 @@ TrailBlazer.prototype.calculateForayPath = function(board, currentRow, currentCo
 			{
 				this.nextSquareToBranchTo = this.getSquareRelatively(this.currentSquare.getCoordinates()[0], this.currentSquare.getCoordinates()[1], this.actionOfCurrentSquare);
 				
-				//console.log(this.nextSquareToBranchTo != globals.ERROR_NOSUCHSQUARE);
-				
 				if(this.nextSquareToBranchTo != globals.ERROR_NOSUCHSQUARE) //There is a square to branch to in the direction being considered by the current square.
 				{
 					
@@ -210,11 +208,9 @@ TrailBlazer.prototype.calculateForayPath = function(board, currentRow, currentCo
 							return calculatedForayPath; //gg no re
 						} 							
 					}
-					else if(this.nextSquareToBranchTo.getStatus() == false) //The square under consideration for branching is closed.
+					else if(this.nextSquareToBranchTo.getStatus() == false && this.nextSquareToBranchTo.isObstacle() == false) //The square under consideration for branching is closed, but it is not an obstacle.
 					{
-						//console.log(this.closedSquaresOnPathSoFar);
-							
-						if(this.closedSquaresOnPathSoFar < allowedClosedSquares && this.nextSquareToBranchTo.isObstacle() == false) //We are still accepting closed squares. We can branch in this direction. This Square also should not be an obstacle.
+						if(this.closedSquaresOnPathSoFar < allowedClosedSquares) //We are still accepting closed squares. We can branch in this direction. This Square also should not be an obstacle.
 						{
 							this.currentSquare.branchTo(this.nextSquareToBranchTo);
 							this.currentSquare = this.nextSquareToBranchTo;
