@@ -51,9 +51,9 @@ pinRightA.watch(function(err, value)
 	
 });
 
-var TARGET = 24; //Go 24 inches
+var TARGET = 2400; //Go 2400 ticks
 
-var pidDriveControl = lib.PIDController(24, -0.5, 0.5);
+var pidDriveControl = lib.PIDController(TARGET, -0.5, 0.5);
 
 pidDriveControl.setP(1);
 pidDriveControl.setI(0);
@@ -63,14 +63,48 @@ pidDriveControl.init(getDistance());
 
 while(abs(TARGET-getDistance())>0.01)//While the distance travelled is not within the target error tolerance.
 {
-	var output = pidDriveControl.getOutput(getDistance());
+	var drive = pidDriveControl.getOutput(getDistance());
+	var turn = 0;
 	
-	leftMotor.setOutput(output);
-	rightMotor.setOutput(output);
+	setRealOutput(drive, turn);
 }
 
 function getDistance()
 {
 	var d = (rightEncoder.getDistance() + leftEncoder.getDistance()) / 2;
 	return d;
+}
+
+function setRealOutput(drivePower, turnRate) //Arcade Drive
+{
+	var left = drivePower;
+	var	right = drivePower;
+	
+	if(turnRate > 0) //Turn right
+	{
+		var val = Math.log(turnRate);
+		var ratio = (val - 0.5) / (val + 0.5);
+		
+		if(ratio == 0)
+		{
+			ratio = 0.00000001;
+		}
+		
+		right = drivePower / ratio;
+	}
+	else if(turnRate < 0) //Turn left
+	{
+		var val = Math.log(-turnRate);
+		var ratio = (val - 0.5) / (val + 0.5);
+		
+		if(ratio == 0)
+		{
+			ratio = 0.00000001;
+		}
+		
+		left = drivePower / ratio;
+	}
+	
+	leftMotor.setOutput(left);
+	rightMotor.setOutput(right);
 }

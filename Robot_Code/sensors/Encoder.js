@@ -7,6 +7,8 @@ var pinA, pinB;
 
 var position;
 
+var lastValue = 0;
+
 var Encoder = function(pinA, pinB, Kt)
 {
 	this.pinA = pinA;
@@ -42,6 +44,35 @@ Encoder.prototype.update = function()
 	{
 		this.position--;
 	}
+}
+
+Encoder.prototype.read = function()
+{
+	var a = 0;
+	var b = 0;
+	
+	bone.digitalRead(this.pinA, function(x)
+	{
+		a = x.value;
+	});
+	bone.digitalRead(this.pinB, function(x)
+	{
+		b = x.value;
+	});
+	
+	if(this.lastValue == 0 && a == 1)
+	{
+		if(b == 0)
+		{
+			this.position--;
+		}
+		else
+		{
+			this.position++;
+		}
+	}
+	
+	this.lastValue = a;
 }
 
 //reset the encoder

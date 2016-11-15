@@ -1,5 +1,8 @@
 var bone = require('bonescript');
 
+//Run other loops off to the side asynchronously
+var async = require('async');
+
 //Encoder Interrupts
 var gpio = require('onoff');
 
@@ -13,6 +16,10 @@ var lib = require('./lib/index.js');
 var device = require('./Devices.js');
 var global = require('./Globals.js');
 var s = require("./Square.js");
+
+//Import the Sensor Loop
+var sensorLoop = require('./SensorLoop.js');
+var sensors = new sensorLoop();
 
 //Import Trailblazer for navigation
 var TB = require('./TrailBlazer.js');
@@ -28,39 +35,19 @@ var codeComplete = false;
 //console.log("Robot Code Running!");
 logger.write("STARTUP","Robot Code Running!");
 
-//d.indicatorLED.setBrightness(1);
-
-//Setup Encoders to use interrupts
-//Replace with actual GPIO pin values
-var pinLeftA = new gpio(1, 'in', 'both');
-var pinRightA = new gpio(3, 'in', 'both');
-
-//Start watching the left encoder for signal changes
-pinLeftA.watch(function(err, value)
-{
-	if(err)
-	{
-		throw err;
-	}
-	
-	device.leftEncoder.update();
-	
-});
-
-//Start watching the right encoder for signal changes
-pinRightA.watch(function(err, value)
-{
-	if(err)
-	{
-		throw err;
-	}
-	
-	device.rightEncoder.update();
-	
-});
-
 //We want to start driving around the perimeter
 global.FuturePath = trailblazer.calculateForayPath(global.CACHE_BOARD, 6, 0);
+
+
+//Asynchronous execution of robot actions and sensor reading
+async.parallel([
+    function(callback)
+	{ ... },
+    function(callback)
+	{ ... }
+], 	function(err, results) {
+    // optional callback
+});
 
 var shouldStopRobot = findCaches();
 
@@ -91,7 +78,7 @@ function autonomousLoop()
 		
 	}
 	
-	return true;
+	return stopRobot();
 }
 
 //Create the actual game board.
@@ -135,7 +122,7 @@ function createCacheBoard()
 //function that stops the robot from moving
 function stopRobot()
 {
-	
+	sensors.stop(); //End the sensor loop
 }
 
 
@@ -145,3 +132,47 @@ process.on('SIGINT', function ()
 	pinLeftA.unexport();
 	pinRightA.unexport();
 });
+
+
+
+
+
+
+
+
+
+/*
+//Setup Encoders to use interrupts
+//Replace with actual GPIO pin values
+var pinLeftA = new gpio(1, 'in', 'both');
+var pinRightA = new gpio(3, 'in', 'both');
+
+//Start watching the left encoder for signal changes
+pinLeftA.watch(function(err, value)
+{
+	if(err)
+	{
+		throw err;
+	}
+	
+	device.leftEncoder.update();
+	
+});
+
+//Start watching the right encoder for signal changes
+pinRightA.watch(function(err, value)
+{
+	if(err)
+	{
+		throw err;
+	}
+	
+	device.rightEncoder.update();
+	
+});
+*/
+
+
+
+
+
