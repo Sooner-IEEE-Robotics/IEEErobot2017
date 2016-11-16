@@ -23,7 +23,7 @@ var sensors = new sensorLoop();
 
 //Import Trailblazer for navigation
 var TB = require('./TrailBlazer.js');
-var trailblazer = new TrailBlazer();
+var trailblazer = new TB();
 
 //Setup the board
 createCacheBoard();
