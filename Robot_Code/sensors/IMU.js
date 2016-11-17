@@ -19,7 +19,9 @@ IMU.prototype.getYaw = function()
 //Read the sensor values
 IMU.prototype.update = function()
 {
+	var data = this.i2cDevice.read();
 	
+	return data; //Return the raw data for now because who knows what's going on
 }
 /*
 IMU.prototype.getPitch = function()
