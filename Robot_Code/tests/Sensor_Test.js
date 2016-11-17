@@ -12,7 +12,7 @@ var logger = new log();
 var lib = require('../lib/index.js');
 
 //Left Encoder
-var leftPinA = "P8_26", leftPinB = "P8_25";
+var leftPinA = "P8_26", leftPinB = "P8_29";//For some reason P8_25 is not in the pinmux
 var leftEncoder = new encoder(leftPinA, leftPinB, 1);
 
 //Right Encoder
