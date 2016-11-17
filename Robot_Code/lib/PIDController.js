@@ -12,6 +12,8 @@ var min, max;
 
 var lastTime, lastProcessVar;
 
+var integrator;
+
 //Standard PID for PWM control
 var PIDController = function(target)
 {
@@ -56,6 +58,7 @@ PIDController.prototype.setTarget = function(target)
 PIDController.prototype.init = function(processVariable)
 {
 	this.lastProcessVar = processVariable;
+	this.integrator = 0;
 }
 
 //Compute the PID output.
@@ -68,19 +71,19 @@ PIDController.prototype.getOutput = function(processVariable)
 	var P = this.error * this.Kp;
 	
 	//Integrate to find past error
-	var integrator += this.error;
+	this.integrator = this.integrator + this.error;
 	
 	//Contain integrated error between output values
-	if(integrator > this.max)
+	if(this.integrator > this.max)
 	{
-		integrator = this.max;
+		this.integrator = this.max;
 	}
-	if(integrator < this.min)
+	if(this.integrator < this.min)
 	{
-		integrator = this.min;
+		this.integrator = this.min;
 	}
 	//Calculate the Integral Component
-	var I = this.Ki * integrator;
+	var I = this.Ki * this.integrator;
 
 	//Find change in position since last sample
 	var processVarDelta = processVariable - this.lastProcessVar;
