@@ -31,19 +31,19 @@ var PIDController = function(target, min, max)
 };
 
 //Sets proportional constant, Kp
-PIDController.prototype.setP(P)
+PIDController.prototype.setP = function(P)
 {
 	this.Kp = P;
 }
 
 //Sets integral constant, Ki
-PIDController.prototype.setI(I)
+PIDController.prototype.setI = function(I)
 {
 	this.Ki = I;
 }
 
 //Sets derivative constant, Kd
-PIDController.prototype.setD(D)
+PIDController.prototype.setD = function(D)
 {
 	this.Kd = D;
 }
