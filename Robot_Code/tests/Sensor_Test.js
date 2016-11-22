@@ -39,8 +39,11 @@ while(true)
 
 function readEncoders()
 {
-	left = leftEncoder.read();
-	right = rightEncoder.read();
+	leftEncoder.read();
+	rightEncoder.read();
+	
+	left = leftEncoder.getTicks();
+	right = rightEncoder.getTicks();
 	
 	distance = (left + right)/2;
 	
