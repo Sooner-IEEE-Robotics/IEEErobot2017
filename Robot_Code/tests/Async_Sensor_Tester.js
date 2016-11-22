@@ -2,6 +2,8 @@ var bone = require('bonescript');
 
 var async = require('async');
 
+var gpio = require('onoff');
+
 //Import Encoders
 var encoder = require('../sensors/Encoder.js');
 var imu = require('../sensors/IMU.js');
@@ -26,6 +28,31 @@ var rightEncoder = new encoder(rightPinA, rightPinB, 1);
 
 var distance = 0;
 
+//Setup interrupts
+//Start watching the left encoder for signal changes
+leftPinA.watch(function(err, value)
+{
+	if(err)
+	{
+		throw err;
+	}
+	
+	leftEncoder.update();
+	
+});
+
+//Start watching the right encoder for signal changes
+rightPinA.watch(function(err, value)
+{
+	if(err)
+	{
+		throw err;
+	}
+	
+	rightEncoder.update();
+	
+});
+
 async.parallel([
     readEncoders(callback),
     mainLoop(callback)
@@ -42,8 +69,8 @@ function readEncoders(callback)
 {
 	while(true)
 	{
-		left = leftEncoder.read();
-		right = rightEncoder.read();
+		left = leftEncoder.getTicks();
+		right = rightEncoder.getTicks();
 		
 		distance = (left + right)/2;
 	}

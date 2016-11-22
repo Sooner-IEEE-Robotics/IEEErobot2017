@@ -24,8 +24,8 @@ var rightEncoder = new encoder(rightPinA, rightPinB, 1);
 var pinLeftA = new gpio(61, 'in', 'both');
 var pinRightA = new gpio(88, 'in', 'both');
 
-var leftMotor = new lib.PWM("zzzz");
-var rightMotor = new lib.PWM("zzzz");
+var leftMotor = new lib.PWM("P9_29");
+var rightMotor = new lib.PWM("P9_30");
 
 //Start watching the left encoder for signal changes
 pinLeftA.watch(function(err, value)
