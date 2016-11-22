@@ -1,5 +1,7 @@
 var bone = require('bonescript');
 
+var gpio.require('onoff');
+
 //Import Encoders
 var encoder = require('../sensors/Encoder.js');
 var imu = require('../sensors/IMU.js');
@@ -28,19 +30,45 @@ var distance= 0;
 
 var yaw = 0;
 
+
+//Setup interrupts
+//Start watching the left encoder for signal changes
+leftPinA.watch(function(err, value)
+{
+	if(err)
+	{
+		throw err;
+	}
+	
+	leftEncoder.update();
+	
+});
+
+//Start watching the right encoder for signal changes
+rightPinA.watch(function(err, value)
+{
+	if(err)
+	{
+		throw err;
+	}
+	
+	rightEncoder.update();
+	
+});
+
+
 //Make sure encoder reading works
 while(true)
 {
+	console.log("Testing has begun");
 	//readGyro();
 	readEncoders();
 }
 
-
-
 function readEncoders()
 {
-	leftEncoder.read();
-	rightEncoder.read();
+	//leftEncoder.read();
+	//rightEncoder.read();
 	
 	left = leftEncoder.getTicks();
 	right = rightEncoder.getTicks();
