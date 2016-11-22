@@ -36,6 +36,9 @@ Encoder.prototype.update = function()
 		b = x.value;
 	});
 	
+	
+	console.log(a + " ?=? " + b);
+	
 	if(a == b)
 	{
 		this.position++;
