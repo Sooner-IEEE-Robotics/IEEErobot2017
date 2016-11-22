@@ -44,7 +44,7 @@ function readEncoders()
 	
 	distance = (left + right)/2;
 	
-	console.log(distance);
+	//console.log(distance);
 }
 
 function readGyro()
