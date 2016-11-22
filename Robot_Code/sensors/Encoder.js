@@ -63,6 +63,9 @@ Encoder.prototype.read = function()
 		b = x.value;
 	});
 	
+	
+	console.log(a + " ?=? " + b);
+	
 	if(this.lastValue == 0 && a == 1)
 	{
 		if(b == 0)
