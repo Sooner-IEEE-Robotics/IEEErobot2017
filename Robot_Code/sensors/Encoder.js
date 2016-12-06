@@ -20,10 +20,34 @@ var Encoder = function(pinA, pinB, Kt)
 	
 	bone.pinMode(this.pinA, bone.INPUT);
 	bone.pinMode(this.pinB, bone.INPUT);
+	
+	bone.attachInterrupt(this.pinA, true, bone.CHANGE, this.interruptCallback);
+}
+
+Encoder.prototype.interruptCallback = function(x)
+{
+	var a = x.value;
+	
+	var b;
+	
+	bone.digitalRead(this.pinB,function(x)
+	{
+		b = x.value;
+	});
+	
+	if(a == b)
+	{
+		this.position++;
+	}
+	else
+	{
+		this.position--;
+	}
 }
 
 Encoder.prototype.update = function()
 {
+	/*
 	var a = 0;
 	var b = 0;
 	
@@ -34,7 +58,8 @@ Encoder.prototype.update = function()
 	bone.digitalRead(this.pinB, function(x)
 	{
 		b = x.value;
-	});
+	}); */
+	
 	
 	
 	console.log(a + " ?=? " + b);
