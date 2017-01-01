@@ -30,6 +30,19 @@ var PIDController = function(target, min, max)
 	this.max = max;
 };
 
+//Set everything
+var PIDController = function(target, min, max, p, i, d)
+{
+	this.target = target;
+	this.min = min;
+	this.max = max;
+	
+	this.Kp = p;
+	this.Ki = i;
+	this.Kd = d;
+};
+
+
 //Sets proportional constant, Kp
 PIDController.prototype.setP = function(P)
 {

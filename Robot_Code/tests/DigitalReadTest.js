@@ -1,6 +1,6 @@
 var bone = require('bonescript');
 
-bone.pinMode("P8_28",bone.INPUT);
+bone.pinMode("P8_12",bone.INPUT);
 /*
 bone.digitalRead("P8_28",readDigital);
 

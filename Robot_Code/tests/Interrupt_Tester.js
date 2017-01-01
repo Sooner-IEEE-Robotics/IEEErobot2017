@@ -1,11 +1,13 @@
 var bone = require('bonescript');
 
 var inputPin = "P8_12";
+var interrupts = 0;
 
 bone.pinMode(inputPin, bone.INPUT);
 
 bone.attachInterrupt(inputPin, true, bone.CHANGE, interruptCallback);
-//setTimeout(detach, 12000);
+setTimeout(detach, 30000);
+//setInterval(counter,10);
 
 function interruptCallback(x) {
 	//var j = JSON.parse(x);
