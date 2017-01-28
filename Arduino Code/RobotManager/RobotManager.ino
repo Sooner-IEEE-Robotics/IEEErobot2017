@@ -2,12 +2,14 @@
 #include "MPU6050_6Axis_MotionApps20.h"
 #include "Wire.h"
 #include "SPI.h"
+#include "PIDController.h"
 
-//Debug flag
+//Debug flags
 bool is_debug = false;
+bool is_nav_debug = false;
 
 //SPI
-int SS = 53;
+int slave_select = 53;
 
 //The device itself
 MPU6050 mpu;
@@ -39,18 +41,45 @@ int leftEncoderB = 17;
 int rightEncoderA = 3;
 int rightEncoderB = 4;
 
-float leftEncoderPos = 0;
-float rightEncoderPos = 0;
+int leftEncoderPos = 0;
+int rightEncoderPos = 0;
 float yaw = 0;
 
 int n = LOW, m = LOW;
 int leftEncoderALast = LOW;
 int rightEncoderALast = LOW;
 
+//Navigation variables
+int left_motor_pin = 6, left_in_1 = 9, left_in_2 = 10;
+int right_motor_pin = 44, right_in_1 = 48, right_in_2 = 46;
+
+
+float distance = 0.0, gyro_error;
+float kR = 0.000407814, kL = 0.0097197;//Encoder constants to convert to inches
+float Y, X;
+
+//Targets
+float targetYaw = 0;
+float distance_target = 0;
+
+//Stores the PID constants for driving a distance and turning. [kP, kI, kD]
+float turnPID[3] = {0.5, 0.0, 0.0};
+float distPID[3] = {0.5, .0004, 0.0004}; 
+
+PIDController turningPID(0, turnPID);
+PIDController distancePID(0, distPID);
+
+
+
 //We need interrupts to make sure we have the most accurate data
 volatile bool mpuInterrupt = false;// indicates whether MPU interrupt pin has gone high
 void dmpDataReady() {
     mpuInterrupt = true;
+}
+
+void resetEncoders()
+{
+	
 }
 
 void resetGyro()
@@ -65,33 +94,92 @@ void doLeftEncoder()
 {
   if(digitalRead(leftEncoderA) == digitalRead(leftEncoderB))
   {
-    leftEncoderPos += 1.0;
+    ++leftEncoderPos;
   }
   else
   {
-    leftEncoderPos -= 1.0;
+    --leftEncoderPos;
   }
 }
 void doRightEncoder()
 {
   if(digitalRead(rightEncoderA) == digitalRead(rightEncoderB))
   {
-    rightEncoderPos += 1.0;
+    ++rightEncoderPos;
   }
   else
   {
-    rightEncoderPos -= 1.0;
+    --rightEncoderPos;
   }
 }
 
-void sendSensorData(float data)
+void arcadeDrive(float forward_power, float turn_power)
 {
-	unsigned char *chptr;
-	chptr = (unsigned char *) &data;
-	SPI.transfer(*chptr++);
-	SPI.transfer(*chptr++);
-	SPI.transfer(*chptr++);
-	SPI.transfer(*chptr);
+  float right, left;
+  
+  if(forward_power > 0)
+  {
+    if(turn_power > 0)
+    {
+      right = forward_power - turn_power;
+      left = max(forward_power, turn_power);
+    }
+    else
+    {
+      right = max(forward_power, -turn_power);
+      left = forward_power + turn_power;
+    }
+  }
+  else
+  {
+    if(turn_power > 0)
+    {
+      right = (-1) * max(-forward_power, turn_power);
+      left = forward_power + turn_power;
+    }
+    else
+    {
+      right = forward_power - turn_power;
+      left = (-1) * max(-turn_power, -forward_power);
+    }
+  }
+  
+    //Configure motors for directional driving
+  if(left < 0)
+  {
+	digitalWrite(left_in_1, HIGH);
+	digitalWrite(left_in_2, LOW); 
+  }
+  else if(left == 0)
+  {
+	digitalWrite(left_in_1, LOW);
+	digitalWrite(left_in_2, LOW); 
+  }
+  else
+  {
+	digitalWrite(left_in_1, LOW);
+	digitalWrite(left_in_2, HIGH); 
+  }
+  
+  if(right < 0)
+  {
+	digitalWrite(right_in_1, LOW);
+	digitalWrite(right_in_2, HIGH);
+  }
+  else if(right == 0)
+  {
+	digitalWrite(right_in_1, LOW);
+	digitalWrite(right_in_2, LOW);
+  }
+  else
+  {
+	digitalWrite(right_in_1, HIGH);
+	digitalWrite(right_in_2, LOW);
+  }
+  
+  //Output to motors
+  analogWrite(left_motor_pin, abs(left)  * 255);
+  analogWrite(right_motor_pin, abs(right) * 255);
 }
 
 void setup() 
@@ -108,7 +196,20 @@ void setup()
 
   attachInterrupt(1, doRightEncoder, CHANGE); //pin 3 interrupt
   attachInterrupt(5, doLeftEncoder, CHANGE);
+
+  //Motor Initialization
+  pinMode(left_motor_pin, OUTPUT);
+  pinMode(right_motor_pin, OUTPUT);
+  pinMode(right_in_1, OUTPUT);
+  pinMode(right_in_2, OUTPUT);
+  pinMode(left_in_1, OUTPUT);
+  pinMode(left_in_2, OUTPUT);
   
+  //Set output range
+  turningPID.SetOutputRange(0.8, -0.8);
+  distancePID.SetOutputRange(0.8, -0.8);
+  
+  /*
   //SPI initialization
   //Turn on SPI in slave mode
   SPCR |= bit (SPE);
@@ -117,10 +218,10 @@ void setup()
   pinMode(MISO, OUTPUT);
   
   SPI.attachInterrupt();
-  
+  */
   
   Wire.begin();
-  if(is_debug)
+  if(is_debug || is_nav_debug)
   {
 	Serial.begin(115200);
   }
@@ -155,10 +256,10 @@ void setup()
   }
   else
   {
-	if(is_debug)
+  if(is_debug)
     {
       Serial.println("Error connecting to MPU6050");
-	}
+  }
   }
 }
 
@@ -166,10 +267,10 @@ void loop()
 { 
   if(!dmpReady) //Die if there are errors
   {
-	if(is_debug)
-	{
+  if(is_debug)
+  {
       Serial.println("RIP: There were errors.");
-	}
+  }
     return;
   }
   
@@ -178,46 +279,43 @@ void loop()
   {
 	if(is_debug)
 	{
-      //Serial.write(27);       // ESC command
-      //Serial.print("[2J");    // clear screen command
-      //Serial.write(27);
-      //Serial.print("[H");     //cursor to home command
-      
-      //Now that the screen is cleared, we can print the latest data
-      Serial.print("Left: ");
-      Serial.println(leftEncoderPos);
-      Serial.print("Right: ");
-      Serial.println(rightEncoderPos);
-      Serial.print("YAW: \t");
-      Serial.println(, 4);
+		//Serial.write(27);       // ESC command
+		//Serial.print("[2J");    // clear screen command
+		//Serial.write(27);
+		//Serial.print("[H");     //cursor to home command
+		
+		//Now that the screen is cleared, we can print the latest data
+		Serial.print("Left: ");
+		Serial.println(leftEncoderPos);
+		Serial.print("Right: ");
+		Serial.println(rightEncoderPos);
+		Serial.print("YAW: \t");
+		Serial.println(yaw, 4);
 	}
 	else
 	{
-		/*
-		Serial3.println('L');
-		Serial3.println(leftEncoderPos); //Left Encoder
-		Serial3.println('R');
-		Serial3.println(rightEncoderPos); //Right Encoder
-		Serial3.println('Y');
-		Serial3.println((ypr[0] - reference[0]) * 180 / M_PI); //YAW
-		Serial3.println("N");*/
+		distance = ((float)(kL*leftEncoderPos) + (float)(kR * rightEncoderPos))/2;
 		
-		//Get the data that the master wants
-		int id = SPI.transfer(0);
+		//Calculate gyro error
+		gyro_error = targetYaw - yaw;
+		gyro_error = fmod((gyro_error + 180), 360.0) - 180;
 		
-		//Send data over SPI
-		if(id == 1)
+		X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
+		Y = turningPID.GetOutput(0, gyro_error); //Calculate the turning power of the motors
+		
+		arcadeDrive(X,Y);
+		
+		if(is_nav_debug)
 		{
-			sendSensorData(leftEncoderPos);
+			Serial.print("X: ");
+			Serial.print(X);
+			//Serial.print("\tY: ");
+			//Serial.print(Y);
+			//Serial.print("\tYAW: \t");
+			//Serial.println(yaw, 4);
+			Serial.print("\tDistance: ");
+			Serial.println(distance);
 		}
-		else if(id == 2)
-		{
-			sendSensorData(rightEncoderPos);
-		}
-		else if(id == 3)
-		{
-			sendSensorData(yaw);
-		}		
 	}
   }
   
@@ -232,10 +330,10 @@ void loop()
   {
         // reset so we can continue cleanly
         mpu.resetFIFO();
-		if(is_debug)
-		{
+    if(is_debug)
+    {
           Serial.println(F("FIFO overflow!"));
-		}
+    }
     } 
   else if (mpuIntStatus & 0x02) // otherwise, check for DMP data ready interrupt (this should happen frequently)
   {
@@ -256,13 +354,17 @@ void loop()
     mpu.dmpGetQuaternion(&q, fifoBuffer);
     mpu.dmpGetGravity(&gravity, &q);
     mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-	
-	yaw = (ypr[0] - reference[0]) * 180 / M_PI;
+  
+    yaw = (ypr[0] - reference[0]) * 180 / M_PI;
     
     if(firstRun)
     {
       resetGyro();
+
+      turningPID.reinitialize((ypr[0] - reference[0]) * 180 / M_PI);
+      
       firstRun = false;
     }
   }  
 }
+

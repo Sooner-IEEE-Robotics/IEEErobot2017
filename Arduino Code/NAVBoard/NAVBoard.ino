@@ -1,16 +1,34 @@
-float turnPID[3], distancePID[3]; //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
+#include "SPI.h"
+#include "PIDController.h"
+
+//Debug flags
+bool is_debug = true;
+
+//Stores the PID constants for driving a distance and turning. [kP, kI, kD]
+float turnPID[3] = {0.875, .0014, 0.0004};
+float distPID[3] = {0.875, .0014, 0.0004}; 
+
+PIDController turningPID(0, turnPID);
+PIDController distancePID(0, distPID);
+
+int incomingByte, dataByte;
+
 float turnIntegrator = 0, distIntegrator = 0;
 float Y, X;
 
-float PIDControl(float *k, float setpoint, float process, float delta_process, float integrator)
-{
-  float error = setpoint - process;
-  float P = k[0] * error;
+int left_motor_pin = 6, right_motor_pin = 7;
+int ss = 10;
 
-  float I = (integrator + error
-}
+//Sensor Data
+float leftEncoderPos = 0, rightEncoder = 0, yaw = 0;
+float distance = 0.0, gyro_error;
+float kR = 1, kL = 1;//Encoder constants to convert to inches
 
-void arcadeDrive(float y_power, float turn_power)
+//Target Info
+float targetYaw = 0;
+float distance_target = 0;
+
+void arcadeDrive(float y_power, float turn_power, int leftPin, int rightPin)
 {
   float right, left;
   
@@ -42,23 +60,44 @@ void arcadeDrive(float y_power, float turn_power)
   }
   
   //Output to motors
+  digitalWrite(leftPin, left);
+  digitalWrite(rightPin, right);
+}
+
+float getSPIData(int id)
+{
+	SPI.transfer(id);
+	
+	unsigned char bit1 = SPI.transfer(0);
+	unsigned char bit2 = SPI.transfer(0);
+	unsigned char bit3 = SPI.transfer(0);
+	unsigned char bit4 = SPI.transfer(0);
+	
+	float f = (float)(bit1 - '0');
 }
 
 void setup() 
 {
-  //Initialize the PID constants for distance
-  distancePID[0] = 1.0;
-  distancePID[1] = 0.001;
-  distancePID[2] = 0.0;
-
-  //Initialize the PID constants for turning
-  turnPID[0] = 1.0;
-  turnPID[1] = 0.001;
-  turnPID[2] = 0.0;
+  //Setup Motors
+  pinMode(left_motor_pin, OUTPUT);
+  pinMode(right_motor_pin, OUTPUT);
+  	
+  //Setup Serial Comms
+  //Serial.begin(115200);
+  SPI.begin();
 }
 
 void loop() 
-{
-  Y = PIDControl(distancePID,0,0); // Calculate the forward power of the motors
-  X = PIDControl(turnPID,0,0);
+{	
+  //Calculate real distance of robot
+  distance = ((leftEncoderPos * kL) + (rightEncoder * kR)) / 2;
+  
+  //Calculate gyro error
+  gyro_error = targetYaw - yaw;
+  gyro_error = ((int)(gyro_error + 180)) % 360 - 180;
+  
+  X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
+  Y = turningPID.GetOutput(0, gyro_error); //Calculate the turning power of the motors
+  
+  arcadeDrive(X,Y, left_motor_pin, right_motor_pin);
 }
