@@ -6,7 +6,7 @@
 
 //Debug flags
 bool is_debug = false;
-bool is_nav_debug = false;
+bool is_nav_debug = true;
 
 //SPI
 int slave_select = 53;
@@ -16,6 +16,7 @@ MPU6050 mpu;
 
 //Variables required to have a gyro reset
 bool firstRun = true;
+bool progFirstRun = true;
 float reference[3]; //[yaw, pitch, roll]
 
 // MPU control/status vars
@@ -54,17 +55,17 @@ int left_motor_pin = 6, left_in_1 = 9, left_in_2 = 10;
 int right_motor_pin = 44, right_in_1 = 48, right_in_2 = 46;
 
 
-float distance = 0.0, gyro_error;
-float kR = 0.000407814, kL = 0.0097197;//Encoder constants to convert to inches
-float Y, X;
+double distance = 0.0, gyro_error;
+double kR = -0.00395, kL = 0.00418;//Encoder constants to convert to inches
+double Y, X;
 
 //Targets
 float targetYaw = 0;
-float distance_target = 0;
+double distance_target = 20;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
-float turnPID[3] = {0.5, 0.0, 0.0};
-float distPID[3] = {0.5, .0004, 0.0004}; 
+float turnPID[3] = {0.15, 0.0001, 0.0002};
+float distPID[3] = {0.30, 0.0001, 0.0010}; 
 
 PIDController turningPID(0, turnPID);
 PIDController distancePID(0, distPID);
@@ -80,6 +81,15 @@ void dmpDataReady() {
 void resetEncoders()
 {
 	
+}
+
+double filter(double p)
+{
+  if(abs(p) < 0.1)
+  {
+    return 0;
+  }
+  return p;
 }
 
 void resetGyro()
@@ -144,37 +154,37 @@ void arcadeDrive(float forward_power, float turn_power)
     }
   }
   
-    //Configure motors for directional driving
+//Configure motors for directional driving
   if(left < 0)
   {
-	digitalWrite(left_in_1, HIGH);
-	digitalWrite(left_in_2, LOW); 
+  digitalWrite(left_in_1, HIGH);
+  digitalWrite(left_in_2, LOW); 
   }
   else if(left == 0)
   {
-	digitalWrite(left_in_1, LOW);
-	digitalWrite(left_in_2, LOW); 
+  digitalWrite(left_in_1, LOW);
+  digitalWrite(left_in_2, LOW); 
   }
   else
   {
-	digitalWrite(left_in_1, LOW);
-	digitalWrite(left_in_2, HIGH); 
+  digitalWrite(left_in_1, LOW);
+  digitalWrite(left_in_2, HIGH); 
   }
   
   if(right < 0)
   {
-	digitalWrite(right_in_1, LOW);
-	digitalWrite(right_in_2, HIGH);
+  digitalWrite(right_in_1, HIGH);
+  digitalWrite(right_in_2, LOW);
   }
   else if(right == 0)
   {
-	digitalWrite(right_in_1, LOW);
-	digitalWrite(right_in_2, LOW);
+  digitalWrite(right_in_1, LOW);
+  digitalWrite(right_in_2, LOW);
   }
   else
   {
-	digitalWrite(right_in_1, HIGH);
-	digitalWrite(right_in_2, LOW);
+  digitalWrite(right_in_1, LOW);
+  digitalWrite(right_in_2, HIGH);
   }
   
   //Output to motors
@@ -206,8 +216,8 @@ void setup()
   pinMode(left_in_2, OUTPUT);
   
   //Set output range
-  turningPID.SetOutputRange(0.8, -0.8);
-  distancePID.SetOutputRange(0.8, -0.8);
+  turningPID.SetOutputRange(0.4, -0.4);
+  distancePID.SetOutputRange(0.6, -0.6);
   
   /*
   //SPI initialization
@@ -265,6 +275,12 @@ void setup()
 
 void loop() 
 { 
+  if(progFirstRun)
+  {
+    delay(15000);
+    progFirstRun = false;
+  }
+  
   if(!dmpReady) //Die if there are errors
   {
   if(is_debug)
@@ -294,27 +310,54 @@ void loop()
 	}
 	else
 	{
-		distance = ((float)(kL*leftEncoderPos) + (float)(kR * rightEncoderPos))/2;
+		distance = ((double)(kL*leftEncoderPos) + (double)(kR * rightEncoderPos))/2;
 		
 		//Calculate gyro error
-		gyro_error = targetYaw - yaw;
-		gyro_error = fmod((gyro_error + 180), 360.0) - 180;
-		
+		gyro_error = yaw - targetYaw;
+		//gyro_error = fmod((gyro_error + 180), 360.0) - 180;
+    if(gyro_error > 180)
+    {
+      gyro_error = -(360 - gyro_error); 
+    }
+
+/*
+    if(abs(gyro_error) < 5)
+    {
+      gyro_error = 0;
+    }
+	*/	
+  //If the robot is within a half inch of distance target, stop
+  if((distance - distance_target) < 0.5)
+  {
+    X = 0;
+  }
+  
 		X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
 		Y = turningPID.GetOutput(0, gyro_error); //Calculate the turning power of the motors
+
+    X = filter(X);
+    Y = filter(Y);
+
+//if we are only off by 1.5 degrees, dont turn
+    if(abs(gyro_error) < 1.5)
+    {
+      Y = 0;
+    }
 		
 		arcadeDrive(X,Y);
 		
 		if(is_nav_debug)
 		{
-			Serial.print("X: ");
-			Serial.print(X);
-			//Serial.print("\tY: ");
-			//Serial.print(Y);
-			//Serial.print("\tYAW: \t");
-			//Serial.println(yaw, 4);
-			Serial.print("\tDistance: ");
-			Serial.println(distance);
+			//Serial.print("X: ");
+			//Serial.print(X);
+			Serial.print("\tY: ");
+			Serial.print(Y);
+			Serial.print("\tYAW: \t");
+			Serial.print(yaw);
+      Serial.print("\tYAW ERROR: \t");
+      Serial.println(gyro_error);
+			//Serial.print("\tDistance: ");
+			//Serial.println(distance);
 		}
 	}
   }
@@ -355,13 +398,17 @@ void loop()
     mpu.dmpGetGravity(&gravity, &q);
     mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
   
-    yaw = (ypr[0] - reference[0]) * 180 / M_PI;
+    yaw = ((ypr[0] - reference[0]) * 180 / M_PI);
+    if(yaw < 0)
+    {
+      yaw = 360 + yaw;
+    }
     
     if(firstRun)
     {
       resetGyro();
 
-      turningPID.reinitialize((ypr[0] - reference[0]) * 180 / M_PI);
+      turningPID.reinitialize(yaw);
       
       firstRun = false;
     }

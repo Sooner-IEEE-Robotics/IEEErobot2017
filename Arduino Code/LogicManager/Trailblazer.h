@@ -2,22 +2,29 @@
 #define TRAILBLAZER_H
 
 #include "Square.h"
-//#include <vector>
+//#include <Vector>
 //#include <algorithm>
 //#include <ctime>
 
 class Trailblazer
 {
-	/*
+	
 	public:
 		Trailblazer();
 		virtual ~Trailblazer();
-		vector<Square> calculateForayPath(vector< vector<Square> > board, int row, int col);
+		Vector<Square> calculateForayPath(int row, int col);
+		void setSquare(int key);
 		
 	protected:
 		
 		
 	private:
+		//The board
+		Vector< Vector<Square> > board;
+		
+		//Enumeration for Directions
+		enum directions {DIRECTION_NORTH = 0, DIRECTION_EAST = 1, DIRECTION_SOUTH = 2, DIRECTION_WEST = 3, DIRECTION_NONE = 10, ERROR_NOSUCHSQUARE = 11};
+		
 		//Redundancy Control
 		int allowedRedundantSteps;
 		int initialMsBeforeIncreasingRedundantSteps;
@@ -27,7 +34,7 @@ class Trailblazer
 		clock_t startTime;
 		
 		//Square Operations
-		vector< vector<Square> > squares;
+		Vector< Vector<Square> > squares;
 		Square currentSquare;
 		int actionOfCurrentSquare;
 		Square nextSquareToBranchTo;
@@ -48,7 +55,7 @@ class Trailblazer
 		Square getSquareRelatively(int row, int column, int direction);
 		bool openSquaresRemain();
 		void resetSquares();
-		*/
+		
 };
 
 #endif

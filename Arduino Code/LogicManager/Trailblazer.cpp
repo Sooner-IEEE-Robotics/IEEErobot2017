@@ -1,5 +1,5 @@
 #include "Trailblazer.h"
-/*
+
 Trailblazer::Trailblazer()
 {
 	allowedRedundantSteps = 10;
@@ -7,6 +7,22 @@ Trailblazer::Trailblazer()
 	additionalMsBeforeIncreasingRedundantSteps = 7500;
 	
 	closedSquaresOnPathSoFar = 0;
+	
+	for(int r = 0; r < 7; ++r)
+	{
+		vector<Square> row;
+		for(int c = 0; c < 7; ++c)
+		{
+			if(r == 6 && c == 0)
+			{
+				row.push_back(Square(r,c,true));
+			}
+			else
+			{
+				row.push_back(Square(r,c,false));
+			}
+		}
+	}
 }
 
 void Trailblazer::beginClock()
@@ -24,7 +40,7 @@ void Trailblazer::initializeBoard()
 	
 }
 
-vector<Square> Trailblazer::calculateForayPath(vector< vector<Square> > board, int row, int col)
+Vector<Square> Trailblazer::calculateForayPath(Vector< Vector<Square> > board, int row, int col)
 {
 	initializeBoard();
 	
@@ -47,4 +63,3 @@ Trailblazer::~Trailblazer()
 	
 }
 
-*/
