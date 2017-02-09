@@ -4,12 +4,30 @@
 #include "SPI.h"
 #include "PIDController.h"
 
+#define FORWARD_DIST 20
+#define LEFT_TURN -90
+#define RIGHT_TURN 90
+
 //Debug flags
 bool is_debug = false;
 bool is_nav_debug = true;
 
-//SPI
-int slave_select = 53;
+//Navigation mode flags
+bool isTurnInPlace = false;
+bool turnComplete = false;
+bool driveComplete = false;
+
+bool stateJustChanged = false;
+int driveState = 0;
+
+//DIO Map Communication IN
+int A = 33, B = 35, C = 37, D = 39; //A is MSB, D is LSB
+
+//DIO Map Communication OUT
+int E = 34, F = 36, G = 38; //E is MSB, G is LSB
+
+//Message Output Interrupt Indicator
+int I = 40;
 
 //The device itself
 MPU6050 mpu;
@@ -70,33 +88,14 @@ float distPID[3] = {0.30, 0.0001, 0.0010};
 PIDController turningPID(0, turnPID);
 PIDController distancePID(0, distPID);
 
-
+/*
+	Interrupt Functions
+*/
 
 //We need interrupts to make sure we have the most accurate data
 volatile bool mpuInterrupt = false;// indicates whether MPU interrupt pin has gone high
 void dmpDataReady() {
     mpuInterrupt = true;
-}
-
-void resetEncoders()
-{
-	
-}
-
-double filter(double p)
-{
-  if(abs(p) < 0.1)
-  {
-    return 0;
-  }
-  return p;
-}
-
-void resetGyro()
-{
-  reference[0] = ypr[0];
-  reference[1] = ypr[1];
-  reference[2] = ypr[2];
 }
 
 //If the signals are the same, the encoder is rotating forward, else backwards
@@ -121,6 +120,91 @@ void doRightEncoder()
   {
     --rightEncoderPos;
   }
+}
+
+void getMessage()
+{
+	int w = digitalRead(A);
+	int x = digitalRead(B);
+	int y = digitalRead(C);
+	int z = digitalRead(D);
+	
+	driveState = (w<<3)|(x<<2)|(y<<1)|z;
+	
+	if(is_nav_debug)
+	{
+		Serial.println(driveState);
+	}
+}
+/*
+	End Interrupt Functions
+*/
+
+/*
+	Reset Functions
+*/
+void resetEncoders()
+{
+	leftEncoderPos = 0;
+	rightEncoderPos = 0;
+}
+
+void resetGyro()
+{
+  reference[0] = ypr[0];
+  reference[1] = ypr[1];
+  reference[2] = ypr[2];
+}
+/*
+	End Reset Functions
+*/
+
+/*
+	Driving Routines
+*/
+void forwardOne()
+{
+	isTurnInPlace = false;
+	
+	distance_target = FORWARD_DIST;
+	targetYaw = yaw;
+}
+
+void leftThenForwardOne()
+{
+	isTurnInPlace = true;
+	
+	distance_target = 0;
+	targetYaw = yaw + LEFT_TURN;
+}
+
+void idle(int ms)
+{
+	distance_target = distance;
+	targetYaw = yaw;
+	delay(ms);
+}
+
+void waitForInstructions()
+{
+	while(true)
+	{
+		arcadeDrive(0, 0);
+		distance_target = distance;
+		targetYaw = yaw;
+	}
+}
+/*
+	End Driving Routines
+*/
+
+double filter(double p)
+{
+  if(abs(p) < 0.1)
+  {
+    return 0;
+  }
+  return p;
 }
 
 void arcadeDrive(float forward_power, float turn_power)
@@ -157,34 +241,34 @@ void arcadeDrive(float forward_power, float turn_power)
 //Configure motors for directional driving
   if(left < 0)
   {
-  digitalWrite(left_in_1, HIGH);
-  digitalWrite(left_in_2, LOW); 
+	digitalWrite(left_in_1, HIGH);
+	digitalWrite(left_in_2, LOW); 
   }
   else if(left == 0)
   {
-  digitalWrite(left_in_1, LOW);
-  digitalWrite(left_in_2, LOW); 
+	digitalWrite(left_in_1, LOW);
+	digitalWrite(left_in_2, LOW); 
   }
   else
   {
-  digitalWrite(left_in_1, LOW);
-  digitalWrite(left_in_2, HIGH); 
+	digitalWrite(left_in_1, LOW);
+	digitalWrite(left_in_2, HIGH); 
   }
   
   if(right < 0)
   {
-  digitalWrite(right_in_1, HIGH);
-  digitalWrite(right_in_2, LOW);
+	digitalWrite(right_in_1, HIGH);
+	digitalWrite(right_in_2, LOW);
   }
   else if(right == 0)
   {
-  digitalWrite(right_in_1, LOW);
-  digitalWrite(right_in_2, LOW);
+	digitalWrite(right_in_1, LOW);
+	digitalWrite(right_in_2, LOW);
   }
   else
   {
-  digitalWrite(right_in_1, LOW);
-  digitalWrite(right_in_2, HIGH);
+	digitalWrite(right_in_1, LOW);
+	digitalWrite(right_in_2, HIGH);
   }
   
   //Output to motors
@@ -214,6 +298,18 @@ void setup()
   pinMode(right_in_2, OUTPUT);
   pinMode(left_in_1, OUTPUT);
   pinMode(left_in_2, OUTPUT);
+  
+  //Message In Pins
+  pinMode(A, INPUT);
+  pinMode(B, INPUT);
+  pinMode(C, INPUT);
+  pinMode(D, INPUT);
+  
+  //Message Out Pins
+  pinMode(E, OUTPUT);
+  pinMode(F, OUTPUT);
+  pinMode(G, OUTPUT);
+  pinMode(I, OUTPUT); //Interrupt the AI by turning this HIGH
   
   //Set output range
   turningPID.SetOutputRange(0.4, -0.4);
@@ -315,34 +411,48 @@ void loop()
 		//Calculate gyro error
 		gyro_error = yaw - targetYaw;
 		//gyro_error = fmod((gyro_error + 180), 360.0) - 180;
-    if(gyro_error > 180)
-    {
-      gyro_error = -(360 - gyro_error); 
-    }
-
-/*
-    if(abs(gyro_error) < 5)
-    {
-      gyro_error = 0;
-    }
-	*/	
-  //If the robot is within a half inch of distance target, stop
-  if((distance - distance_target) < 0.5)
-  {
-    X = 0;
-  }
-  
-		X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
+		if(gyro_error > 180)
+		{
+			gyro_error = -(360 - gyro_error); 
+		}
+	
+		if(driveState == 0)
+		{
+			
+		}
+		else if(driveState == 1)
+		{
+			forwardOne();
+		}
+		
+		//If the robot is within a half inch of distance target, stop
+		if((distance - distance_target) < 0.5)
+		{
+			X = 0;
+			driveComplete = true;
+		}
+	
+		//Get the output variables based on PID Control
+		if(!isTurnInPlace)
+		{
+			X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
+		}
+		else
+		{
+			X = 0;
+		}
+		
 		Y = turningPID.GetOutput(0, gyro_error); //Calculate the turning power of the motors
-
-    X = filter(X);
-    Y = filter(Y);
-
-//if we are only off by 1.5 degrees, dont turn
-    if(abs(gyro_error) < 1.5)
-    {
-      Y = 0;
-    }
+	
+		//Don't output if the output won't move the robot (save energy)
+		X = filter(X);
+		Y = filter(Y);
+	
+		//if we are only off by 1.5 degrees, dont turn
+		if(abs(gyro_error) < 1.5)
+		{
+			Y = 0;
+		}
 		
 		arcadeDrive(X,Y);
 		
@@ -350,17 +460,17 @@ void loop()
 		{
 			//Serial.print("X: ");
 			//Serial.print(X);
-			Serial.print("\tY: ");
-			Serial.print(Y);
-			Serial.print("\tYAW: \t");
-			Serial.print(yaw);
-      Serial.print("\tYAW ERROR: \t");
-      Serial.println(gyro_error);
+			//Serial.print("\tY: ");
+			//Serial.print(Y);
+			//Serial.print("\tYAW: \t");
+			//Serial.print(yaw);
+			//Serial.print("\tYAW ERROR: \t");
+			//Serial.println(gyro_error);
 			//Serial.print("\tDistance: ");
 			//Serial.println(distance);
 		}
 	}
-  }
+}
   
   // reset interrupt flag and get INT_STATUS byte
   mpuInterrupt = false;

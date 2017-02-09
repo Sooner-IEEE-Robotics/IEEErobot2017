@@ -12,27 +12,10 @@ SoonerColorduinoMaster scm(8);
 
 void setup() 
 {
-  
-  /*
-  //SPI initialization
-  //Turn on SPI in slave mode
-  SPCR |= bit (SPE);
-
-  // have to send on master in, *slave out*
-  pinMode(MISO, OUTPUT);
-  
-  SPI.attachInterrupt();
-  */
-  
- // Wire.begin();
-  
   if(is_debug)
   {
 	Serial.begin(115200);
   }
-  
-  
-  
 }
 
 void loop() 
