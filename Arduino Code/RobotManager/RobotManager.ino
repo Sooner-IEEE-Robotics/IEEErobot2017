@@ -4,9 +4,13 @@
 #include "SPI.h"
 #include "PIDController.h"
 
+//Units to trigger obstacle detection (0-1023 mapped from 0 to 5 Volts)
+#define OBJECT_THRESHOLD 512 
+
 #define FORWARD_DIST 20
 #define LEFT_TURN -90
 #define RIGHT_TURN 90
+#define FULL_TURN 180
 
 //Debug flags
 bool is_debug = false;
@@ -20,14 +24,25 @@ bool driveComplete = false;
 bool stateJustChanged = false;
 int driveState = 0;
 
+float startYaw = 0;
+
 //DIO Map Communication IN
 int A = 33, B = 35, C = 37, D = 39; //A is MSB, D is LSB
 
 //DIO Map Communication OUT
-int E = 34, F = 36, G = 38; //E is MSB, G is LSB
+int E = 34, F = 36, G = 38, H = 40; //E is MSB, G is LSB
 
 //Message Output Interrupt Indicator
-int I = 40;
+int I = 42;
+int lastIValue = LOW;
+
+//Object sensor
+int sharpAnalogPin = 0;
+float sharpValue;
+bool isPathBlocked = false;
+
+//Metal Detector Stuff
+int metalDetectorPin = 28;
 
 //The device itself
 MPU6050 mpu;
@@ -135,6 +150,8 @@ void getMessage()
 	{
 		Serial.println(driveState);
 	}
+	
+	stateJustChanged = true;
 }
 /*
 	End Interrupt Functions
@@ -160,44 +177,9 @@ void resetGyro()
 */
 
 /*
-	Driving Routines
+	Driving functions
+	Arcade Drive and filtering
 */
-void forwardOne()
-{
-	isTurnInPlace = false;
-	
-	distance_target = FORWARD_DIST;
-	targetYaw = yaw;
-}
-
-void leftThenForwardOne()
-{
-	isTurnInPlace = true;
-	
-	distance_target = 0;
-	targetYaw = yaw + LEFT_TURN;
-}
-
-void idle(int ms)
-{
-	distance_target = distance;
-	targetYaw = yaw;
-	delay(ms);
-}
-
-void waitForInstructions()
-{
-	while(true)
-	{
-		arcadeDrive(0, 0);
-		distance_target = distance;
-		targetYaw = yaw;
-	}
-}
-/*
-	End Driving Routines
-*/
-
 double filter(double p)
 {
   if(abs(p) < 0.1)
@@ -275,6 +257,70 @@ void arcadeDrive(float forward_power, float turn_power)
   analogWrite(left_motor_pin, abs(left)  * 255);
   analogWrite(right_motor_pin, abs(right) * 255);
 }
+/*
+	End Driving Functions
+*/
+
+/*
+	Driving Routines
+	These functions set targets once a state change takes place
+*/
+void forwardOne()
+{
+	isTurnInPlace = false;
+	
+	distance_target = FORWARD_DIST;
+	targetYaw = 0;
+}
+
+void leftTurn()
+{
+	isTurnInPlace = true;
+	
+	distance_target = 0;
+	targetYaw = LEFT_TURN;
+}
+
+void rightTurn()
+{
+	isTurnInPlace = true;
+	
+	distance_target = 0;
+	targetYaw = RIGHT_TURN;
+}
+
+void fullTurn()
+{
+	isTurnInPlace = true;
+	
+	distance_target = 0;
+	targetYaw = FULL_TURN;
+}
+
+void cacheSequenceClosedLoop()
+{
+	
+}
+
+void idle(int ms)
+{
+	distance_target = 0;
+	targetYaw = 0;
+	delay(ms);
+}
+
+void waitForInstructions()
+{
+	while(!stateJustChanged)
+	{
+		arcadeDrive(0, 0);
+		distance_target = 0;
+		targetYaw = 0;
+	}
+}
+/*
+	End Driving Routines
+*/
 
 void setup() 
 {
@@ -304,27 +350,29 @@ void setup()
   pinMode(B, INPUT);
   pinMode(C, INPUT);
   pinMode(D, INPUT);
+  attachInterrupt(4, getMessage, CHANGE); //Pin 19 interrupt
   
   //Message Out Pins
   pinMode(E, OUTPUT);
   pinMode(F, OUTPUT);
   pinMode(G, OUTPUT);
+  pinMode(H, OUTPUT);
   pinMode(I, OUTPUT); //Interrupt the AI by turning this HIGH
+  
+  //Set to default ready mode (Motion complete, waiting for instructions)
+  digitalWrite(E, HIGH);
+  digitalWrite(F, HIGH);
+  digitalWrite(G, HIGH);
+  digitalWrite(H, HIGH);
+  digitalWrite(I, LOW);
+  
+  //Setup metal detector pin to get readings
+  pinMode(metalDetectorPin, INPUT);
   
   //Set output range
   turningPID.SetOutputRange(0.4, -0.4);
   distancePID.SetOutputRange(0.6, -0.6);
-  
-  /*
-  //SPI initialization
-  //Turn on SPI in slave mode
-  SPCR |= bit (SPE);
 
-  // have to send on master in, *slave out*
-  pinMode(MISO, OUTPUT);
-  
-  SPI.attachInterrupt();
-  */
   
   Wire.begin();
   if(is_debug || is_nav_debug)
@@ -415,59 +463,138 @@ void loop()
 		{
 			gyro_error = -(360 - gyro_error); 
 		}
-	
-		if(driveState == 0)
-		{
-			
-		}
-		else if(driveState == 1)
-		{
-			forwardOne();
-		}
 		
-		//If the robot is within a half inch of distance target, stop
-		if((distance - distance_target) < 0.5)
+		//If the state has just changed, stop and set new targets
+		if(stateJustChanged)
 		{
-			X = 0;
-			driveComplete = true;
+			stateJustChanged = false;
+			
+			driveComplete = false;
+			turnComplete = false;
+			
+			arcadeDrive(0,0); //Stop
+			delay(100); //Make sure we are really stopped
+			
+			//Reset
+			resetGyro();
+			resetEncoders();
+			
+			if(driveState == 0)
+			{
+				idle(50);
+			}
+			else if(driveState == 1)
+			{
+				forwardOne();
+			}
+			else if(driveState == 2)
+			{
+				leftTurn();
+			}
+			else if(driveState == 3)
+			{
+				rightTurn();
+			}
+			else if(driveState == 4)
+			{
+				fullTurn();
+			}
+			else if(driveState == 5)
+			{
+				cacheSequenceClosedLoop();
+			}
+			else if(driveState == 6)
+			{
+				waitForInstructions();
+			}
+			else
+			{
+				idle(100);
+			}
 		}
-	
-		//Get the output variables based on PID Control
-		if(!isTurnInPlace)
+		else if(driveComplete == false || turnComplete == false)
 		{
-			X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
+			//If the robot is within a half inch of distance target, stop
+			if((distance - distance_target) < 0.5)
+			{
+				X = 0;
+				driveComplete = true;
+			}
+		
+			//Get the output variables based on PID Control
+			if(!isTurnInPlace)
+			{
+				X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
+			}
+			else
+			{
+				driveComplete = true;
+				X = 0;
+			}
+			
+			Y = turningPID.GetOutput(0, gyro_error); //Calculate the turning power of the motors
+		
+			//Don't output if the output won't move the robot (save power)
+			X = filter(X);
+			Y = filter(Y);
+		
+			//if we are only off by 1.5 degrees, dont turn
+			if(abs(gyro_error) < 1.5)
+			{
+				Y = 0;
+				turnComplete = true;
+			}
+			else
+			{
+				turnComplete = false;
+			}
+			
+			arcadeDrive(X,Y);
+			
+			if(is_nav_debug)
+			{
+				//Serial.print("X: ");
+				//Serial.print(X);
+				//Serial.print("\tY: ");
+				//Serial.print(Y);
+				//Serial.print("\tYAW: \t");
+				//Serial.print(yaw);
+				//Serial.print("\tYAW ERROR: \t");
+				//Serial.println(gyro_error);
+				//Serial.print("\tDistance: ");
+				//Serial.println(distance);
+			}
 		}
 		else
 		{
-			X = 0;
-		}
-		
-		Y = turningPID.GetOutput(0, gyro_error); //Calculate the turning power of the motors
-	
-		//Don't output if the output won't move the robot (save energy)
-		X = filter(X);
-		Y = filter(Y);
-	
-		//if we are only off by 1.5 degrees, dont turn
-		if(abs(gyro_error) < 1.5)
-		{
-			Y = 0;
-		}
-		
-		arcadeDrive(X,Y);
-		
-		if(is_nav_debug)
-		{
-			//Serial.print("X: ");
-			//Serial.print(X);
-			//Serial.print("\tY: ");
-			//Serial.print(Y);
-			//Serial.print("\tYAW: \t");
-			//Serial.print(yaw);
-			//Serial.print("\tYAW ERROR: \t");
-			//Serial.println(gyro_error);
-			//Serial.print("\tDistance: ");
-			//Serial.println(distance);
+			/* Read Square Sensors */
+			int l, m, n, o;
+			//If the voltage is low on the Sharp Sensor, detect an obstacle.
+			if(analogRead(sharpAnalogPin) < OBJECT_THRESHOLD)
+			{
+				o = 1;
+			}
+			else
+			{
+				o = 2;
+			}
+			
+			n = digitalRead(metalDetectorPin);
+			
+			//mystery sensor for dead end tunnel.
+			m = 0;
+			
+			l = 1;
+			
+			//Send message with block statistics
+			if(lastIValue == LOW)
+			{
+				
+			}
+			else
+			{
+				
+			}
 		}
 	}
 }
