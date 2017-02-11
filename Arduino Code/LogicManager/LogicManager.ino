@@ -11,13 +11,88 @@ int slave_select = 53;
 
 SoonerColorduinoMaster scm(8);
 
+//Message System (IN)
+int E = 4, F = 5, G = 6, H = 7;
+int L, M, N, O;
+
+//Message System (OUT)
+int B = 9, C = 10, D = 11;
+int I = 12;
+int lastIValue = LOW;
 
 //Test message communication
+int index = 0;
 int sampleMessages = {1,2,1,3,1,4,1,2,1,3,1};
 
+//Current Coordinates
+int x = 0, y = 6; // x = column, y = row
+
+
+//TODO: Replace sampleMessages with an actual path.
+void sendMessage()
+{
+	int messageToSend = 6;
+	if(index < sampleMessages.length())
+	{
+		messageToSend = sampleMessages[index];
+	}
+	
+	int x = messageToSend | 4;
+	int y = messageToSend | 2;
+	int z = messageToSend | 1;
+	
+	digitalWrite(B, x);
+	digitalWrite(C, y);
+	digitalWrite(D, z);	
+}
+
+void getMessage()
+{
+	L = digitalRead(E);
+	M = digitalRead(F);
+	N = digitalRead(G);
+	O = digitalRead(H);
+	
+	if(M == 1)
+	{
+		//scm.setPixelRed();
+		//Do some stuff to the square.
+	}
+	else if(N == 1)
+	{
+		//scm.setPixelBlue();
+		//Do some stuff to the Square
+	}
+	
+	if(O == 1)
+	{
+		//Recalculate route
+		//Set Square to obstacle
+	}
+	else if(L == 1) //If motion complete
+	{
+		index++;
+		sendMessage();
+	}
+}
 
 void setup() 
 {
+	
+	attachInterrupt(0, getMessage, CHANGE);
+	
+	pinMode(I, OUTPUT);
+	
+	pinMode(A, OUTPUT);
+	pinMode(B, OUTPUT);
+	pinMode(C, OUTPUT);
+	pinMode(D, OUTPUT);
+	
+	pinMode(E, INPUT);
+	pinMode(F, INPUT);
+	pinMode(G, INPUT);
+	pinMode(H, INPUT);
+	
 	if(is_debug)
 	{
 		Serial.begin(115200);
@@ -61,7 +136,7 @@ void setup()
 
 void loop() 
 { 
-	
+	delay(50);
 }
 
  /* Mapping for SCR Matrix display

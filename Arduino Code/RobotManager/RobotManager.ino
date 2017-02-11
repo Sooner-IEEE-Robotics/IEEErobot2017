@@ -27,10 +27,10 @@ int driveState = 0;
 float startYaw = 0;
 
 //DIO Map Communication IN
-int A = 33, B = 35, C = 37, D = 39; //A is MSB, D is LSB
+int B = 35, C = 37, D = 39; //B is MSB, D is LSB
 
 //DIO Map Communication OUT
-int E = 34, F = 36, G = 38, H = 40; //E is MSB, G is LSB
+int E = 34, F = 36, G = 38, H = 40;
 
 //Message Output Interrupt Indicator
 int I = 42;
@@ -139,12 +139,11 @@ void doRightEncoder()
 
 void getMessage()
 {
-	int w = digitalRead(A);
 	int x = digitalRead(B);
 	int y = digitalRead(C);
 	int z = digitalRead(D);
 	
-	driveState = (w<<3)|(x<<2)|(y<<1)|z;
+	driveState = (x<<2)|(y<<1)|z;
 	
 	if(is_nav_debug)
 	{
@@ -511,6 +510,8 @@ void loop()
 			{
 				idle(100);
 			}
+			
+			digitalWrite(E, LOW);
 		}
 		else if(driveComplete == false || turnComplete == false)
 		{
@@ -568,33 +569,42 @@ void loop()
 		else
 		{
 			/* Read Square Sensors */
-			int l, m, n, o;
+			int l = 1, m, n, o;
 			//If the voltage is low on the Sharp Sensor, detect an obstacle.
 			if(analogRead(sharpAnalogPin) < OBJECT_THRESHOLD)
 			{
 				o = 1;
+				l = 0;
 			}
 			else
 			{
 				o = 2;
 			}
 			
-			n = digitalRead(metalDetectorPin);
+			m = digitalRead(metalDetectorPin);
 			
 			//mystery sensor for dead end tunnel.
-			m = 0;
+			n = 0;
 			
-			l = 1;
+			digitalWrite(E, l);
+			digitalWrite(F, m);
+			digitalWrite(G, n);
+			digitalWrite(H, o);
 			
 			//Send message with block statistics
 			if(lastIValue == LOW)
 			{
-				
+				digitalWrite(I, HIGH);
+				lastIValue = HIGH;
 			}
 			else
 			{
-				
+				digitalWrite(I, LOW);
+				lastIValue = LOW;
 			}
+			
+			
+			
 		}
 	}
 }
