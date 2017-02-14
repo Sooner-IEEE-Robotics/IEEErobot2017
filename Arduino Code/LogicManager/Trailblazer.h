@@ -2,6 +2,7 @@
 #define TRAILBLAZER_H
 
 #include "Square.h"
+#include <Vector.h>
 //#include <Vector>
 //#include <algorithm>
 //#include <ctime>
@@ -31,7 +32,7 @@ class Trailblazer
 		int additionalMsBeforeIncreasingRedundantSteps;
 		
 		//Timing
-		clock_t startTime;
+		//clock_t startTime;
 		
 		//Square Operations
 		Vector< Vector<Square> > squares;
@@ -41,7 +42,7 @@ class Trailblazer
 		int closedSquaresOnPathSoFar;
 		bool triedAllPossiblePaths;
 		bool searchedForTooLong;
-		int msBeforeIncreasingAllowedClosedSquares
+		int msBeforeIncreasingAllowedClosedSquares;
 		
 		//Timing
 		void beginClock();
@@ -55,7 +56,7 @@ class Trailblazer
 		Square getSquareRelatively(int row, int column, int direction);
 		bool openSquaresRemain();
 		void resetSquares();
-		
+	
 };
 
 #endif

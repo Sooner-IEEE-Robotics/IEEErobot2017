@@ -4,7 +4,6 @@
 
 //Debug and other flags
 bool is_debug = true;
-bool is_display_SCR = true;
 
 //SPI
 int slave_select = 53;
@@ -18,32 +17,51 @@ int L, M, N, O;
 //Message System (OUT)
 int B = 9, C = 10, D = 11;
 int I = 12;
-int lastIValue = LOW;
+int lastIValue = HIGH;
 
 //Test message communication
 int index = 0;
-int sampleMessages = {1,2,1,3,1,4,1,2,1,3,1};
+int sampleMessages[11] = {1,2,1,3,1,4,1,2,1,3,1};
 
 //Current Coordinates
 int x = 0, y = 6; // x = column, y = row
 
+//Start & Stop Buttons
+int startButton = 8;
+bool robotStart = true;
+bool firstRun = true;
+
 
 //TODO: Replace sampleMessages with an actual path.
-void sendMessage()
-{
-	int messageToSend = 6;
-	if(index < sampleMessages.length())
+void sendMessage(int messageToSend, bool useArg)
+{	
+	if(!useArg)
 	{
-		messageToSend = sampleMessages[index];
-	}
+		if(index < sizeof(sampleMessages))
+		{
+			++index;
+			messageToSend = sampleMessages[index];
+		}
+	}	
 	
-	int x = messageToSend | 4;
-	int y = messageToSend | 2;
-	int z = messageToSend | 1;
+	int x = messageToSend & 4;
+	int y = messageToSend & 2;
+	int z = messageToSend & 1;
 	
 	digitalWrite(B, x);
 	digitalWrite(C, y);
 	digitalWrite(D, z);	
+	
+	if(lastIValue == LOW)
+	{
+		digitalWrite(I, HIGH);
+		lastIValue = HIGH;
+	}
+	else
+	{
+		digitalWrite(I, LOW);
+		lastIValue = LOW;
+	}
 }
 
 void getMessage()
@@ -52,6 +70,11 @@ void getMessage()
 	M = digitalRead(F);
 	N = digitalRead(G);
 	O = digitalRead(H);
+	
+	if(is_debug)
+	{
+		Serial.println(L);
+	}
 	
 	if(M == 1)
 	{
@@ -69,11 +92,30 @@ void getMessage()
 		//Recalculate route
 		//Set Square to obstacle
 	}
-	else if(L == 1) //If motion complete
+	else if(L == 1 && robotStart) //If motion complete
 	{
-		index++;
-		sendMessage();
+		//index++;
+		//sendMessage(0, false);
 	}
+}
+
+void stopRobot()
+{
+	digitalWrite(B, 1);
+	digitalWrite(C, 1);
+	digitalWrite(D, 1);	
+	
+	if(lastIValue == LOW)
+	{
+		digitalWrite(I, HIGH);
+		lastIValue = HIGH;
+	}
+	else
+	{
+		digitalWrite(I, LOW);
+		lastIValue = LOW;
+	}
+	
 }
 
 void setup() 
@@ -83,7 +125,6 @@ void setup()
 	
 	pinMode(I, OUTPUT);
 	
-	pinMode(A, OUTPUT);
 	pinMode(B, OUTPUT);
 	pinMode(C, OUTPUT);
 	pinMode(D, OUTPUT);
@@ -98,54 +139,28 @@ void setup()
 		Serial.begin(115200);
 	}
 	
-	if(is_display_SCR)
-	{
-		//S
-		scm.setPixelRed(0,6);
-		scm.setPixelRed(0,5);
-		scm.setPixelRed(0,4);
-		scm.setPixelRed(0,2);
-		scm.setPixelRed(1,6);
-		scm.setPixelRed(1,4);
-		scm.setPixelRed(1,3);
-		scm.setPixelRed(1,2);
-		
-		//C
-		scm.setPixel(2,6,63,63,63);
-		scm.setPixel(2,5,63,63,63);
-		scm.setPixel(2,4,63,63,63);
-		scm.setPixel(2,3,63,63,63);
-		scm.setPixel(2,2,63,63,63);
-		scm.setPixel(3,6,63,63,63);
-		scm.setPixel(3,2,63,63,63);
-		
-		//R
-		scm.setPixelRed(4,6);
-		scm.setPixelRed(4,5);
-		scm.setPixelRed(4,4);
-		scm.setPixelRed(4,3);
-		scm.setPixelRed(4,2);
-		scm.setPixelRed(5,6);
-		scm.setPixelRed(5,4);
-		scm.setPixelRed(6,6);
-		scm.setPixelRed(6,5);
-		scm.setPixelRed(6,3);
-		scm.setPixelRed(6,2);
-	}
 }
 
 void loop() 
 { 
-	delay(50);
+/*
+	if(robotStart && digitalRead(E) && firstRun)
+	{
+		sendMessage(1, true);
+		firstRun = false;
+	}*/
+	sendMessage(1, true);
+	delay(15000);
 }
 
  /* Mapping for SCR Matrix display
- _ _ _ _ _ _ _
-|s s c c r r r
-|s   c   r   r
-|s s c   r r
-|  s c   r   r
-|s s c c r   r
+ _ _ _ _ _ _ _ _
+|s s s c c r r r
+|s     c   r   r
+|s s s c   r r
+|    s c   r   r
+|s s s c c r   r
+|
 |
 |
 */

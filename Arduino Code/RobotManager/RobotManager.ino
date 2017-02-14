@@ -7,10 +7,10 @@
 //Units to trigger obstacle detection (0-1023 mapped from 0 to 5 Volts)
 #define OBJECT_THRESHOLD 512 
 
-#define FORWARD_DIST 20
-#define LEFT_TURN -90
-#define RIGHT_TURN 90
-#define FULL_TURN 180
+double FORWARD_DIST = 20;
+float LEFT_TURN  = -90;
+float RIGHT_TURN = 90;
+float FULL_TURN = 180;
 
 //Debug flags
 bool is_debug = false;
@@ -94,7 +94,7 @@ double Y, X;
 
 //Targets
 float targetYaw = 0;
-double distance_target = 20;
+double distance_target = 0;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
 float turnPID[3] = {0.15, 0.0001, 0.0002};
@@ -102,6 +102,26 @@ float distPID[3] = {0.30, 0.0001, 0.0010};
 
 PIDController turningPID(0, turnPID);
 PIDController distancePID(0, distPID);
+
+
+/*
+	Reset Functions
+*/
+void resetEncoders()
+{
+	leftEncoderPos = 0;
+	rightEncoderPos = 0;
+}
+
+void resetGyro()
+{
+  reference[0] = ypr[0];
+  reference[1] = ypr[1];
+  reference[2] = ypr[2];
+}
+/*
+	End Reset Functions
+*/
 
 /*
 	Interrupt Functions
@@ -147,33 +167,68 @@ void getMessage()
 	
 	if(is_nav_debug)
 	{
+		Serial.print(x);
+		Serial.print(y);
+		Serial.print(z);
+		
+		Serial.print(" DS: ");
 		Serial.println(driveState);
 	}
 	
-	stateJustChanged = true;
+	//stateJustChanged = true;
+	
+	//stateJustChanged = false;
+			
+	driveComplete = false;
+	turnComplete = false;
+	
+	arcadeDrive(0,0); //Stop
+	delay(100); //Make sure we are really stopped
+	
+	//Reset
+	resetGyro();
+	resetEncoders();
+	
+	if(driveState == 0)
+	{
+		idle(50);
+	}
+	else if(driveState == 1)
+	{
+		forwardOne();
+	}
+	else if(driveState == 2)
+	{
+		leftTurn();
+	}
+	else if(driveState == 3)
+	{
+		rightTurn();
+	}
+	else if(driveState == 4)
+	{
+		fullTurn();
+	}
+	else if(driveState == 5)
+	{
+		cacheSequenceClosedLoop();
+	}
+	else if(driveState == 6)
+	{
+		//waitForInstructions();
+		idle(1000);
+	}
+	else
+	{
+		idle(100);
+	}
+	
+	digitalWrite(E, LOW);
 }
 /*
 	End Interrupt Functions
 */
 
-/*
-	Reset Functions
-*/
-void resetEncoders()
-{
-	leftEncoderPos = 0;
-	rightEncoderPos = 0;
-}
-
-void resetGyro()
-{
-  reference[0] = ypr[0];
-  reference[1] = ypr[1];
-  reference[2] = ypr[2];
-}
-/*
-	End Reset Functions
-*/
 
 /*
 	Driving functions
@@ -306,6 +361,9 @@ void idle(int ms)
 	distance_target = 0;
 	targetYaw = 0;
 	delay(ms);
+	
+	driveComplete = true;
+	turnComplete = true;
 }
 
 void waitForInstructions()
@@ -345,7 +403,6 @@ void setup()
   pinMode(left_in_2, OUTPUT);
   
   //Message In Pins
-  pinMode(A, INPUT);
   pinMode(B, INPUT);
   pinMode(C, INPUT);
   pinMode(D, INPUT);
@@ -356,13 +413,13 @@ void setup()
   pinMode(F, OUTPUT);
   pinMode(G, OUTPUT);
   pinMode(H, OUTPUT);
-  pinMode(I, OUTPUT); //Interrupt the AI by turning this HIGH
+  pinMode(I, OUTPUT); //Interrupt the AI by changing this
   
   //Set to default ready mode (Motion complete, waiting for instructions)
   digitalWrite(E, HIGH);
-  digitalWrite(F, HIGH);
-  digitalWrite(G, HIGH);
-  digitalWrite(H, HIGH);
+  digitalWrite(F, LOW);
+  digitalWrite(G, LOW);
+  digitalWrite(H, LOW);
   digitalWrite(I, LOW);
   
   //Setup metal detector pin to get readings
@@ -426,16 +483,16 @@ void loop()
   
   if(!dmpReady) //Die if there are errors
   {
-  if(is_debug)
-  {
-      Serial.println("RIP: There were errors.");
-  }
+	if(is_debug)
+	{
+		Serial.println("RIP: There were errors.");
+	}
     return;
   }
   
   //while the gyro isn't giving any data, do other things
   while(!mpuInterrupt && packetSize >= fifoCount)
-  {
+  {	
 	if(is_debug)
 	{
 		//Serial.write(27);       // ESC command
@@ -462,58 +519,8 @@ void loop()
 		{
 			gyro_error = -(360 - gyro_error); 
 		}
-		
-		//If the state has just changed, stop and set new targets
-		if(stateJustChanged)
-		{
-			stateJustChanged = false;
-			
-			driveComplete = false;
-			turnComplete = false;
-			
-			arcadeDrive(0,0); //Stop
-			delay(100); //Make sure we are really stopped
-			
-			//Reset
-			resetGyro();
-			resetEncoders();
-			
-			if(driveState == 0)
-			{
-				idle(50);
-			}
-			else if(driveState == 1)
-			{
-				forwardOne();
-			}
-			else if(driveState == 2)
-			{
-				leftTurn();
-			}
-			else if(driveState == 3)
-			{
-				rightTurn();
-			}
-			else if(driveState == 4)
-			{
-				fullTurn();
-			}
-			else if(driveState == 5)
-			{
-				cacheSequenceClosedLoop();
-			}
-			else if(driveState == 6)
-			{
-				waitForInstructions();
-			}
-			else
-			{
-				idle(100);
-			}
-			
-			digitalWrite(E, LOW);
-		}
-		else if(driveComplete == false || turnComplete == false)
+				
+		if(driveComplete == false || turnComplete == false)
 		{
 			//If the robot is within a half inch of distance target, stop
 			if((distance - distance_target) < 0.5)
@@ -538,6 +545,13 @@ void loop()
 			//Don't output if the output won't move the robot (save power)
 			X = filter(X);
 			Y = filter(Y);
+			
+			if(is_nav_debug)
+			{
+				Serial.print(X);
+				Serial.print(" ");
+				Serial.println(Y);
+			}
 		
 			//if we are only off by 1.5 degrees, dont turn
 			if(abs(gyro_error) < 1.5)
@@ -569,7 +583,8 @@ void loop()
 		else
 		{
 			/* Read Square Sensors */
-			int l = 1, m, n, o;
+			int l = 1, m = 0, n = 0, o = 0;
+			/*
 			//If the voltage is low on the Sharp Sensor, detect an obstacle.
 			if(analogRead(sharpAnalogPin) < OBJECT_THRESHOLD)
 			{
@@ -580,8 +595,9 @@ void loop()
 			{
 				o = 2;
 			}
+			*/
 			
-			m = digitalRead(metalDetectorPin);
+			//m = digitalRead(metalDetectorPin);
 			
 			//mystery sensor for dead end tunnel.
 			n = 0;
@@ -603,7 +619,15 @@ void loop()
 				lastIValue = LOW;
 			}
 			
-			
+			/*
+			if(is_nav_debug)
+			{
+				Serial.print(l);
+				Serial.print(m);
+				Serial.print(n);
+				Serial.println(o);
+			}
+			*/
 			
 		}
 	}
@@ -660,5 +684,14 @@ void loop()
       firstRun = false;
     }
   }  
+  
+	if(is_nav_debug)
+	{
+		//Serial.print(distance);
+		//Serial.print(" vs. ");
+		//Serial.println(distance_target);
+		//Serial.println(driveComplete);
+	}
+	
 }
 

@@ -10,7 +10,7 @@ Trailblazer::Trailblazer()
 	
 	for(int r = 0; r < 7; ++r)
 	{
-		vector<Square> row;
+		Vector<Square> row;
 		for(int c = 0; c < 7; ++c)
 		{
 			if(r == 6 && c == 0)
@@ -27,12 +27,12 @@ Trailblazer::Trailblazer()
 
 void Trailblazer::beginClock()
 {
-	startTime = clock();
+//	startTime = clock();
 }
 
 double Trailblazer::getElapsedTime()
 {
-	return ((clock() - startTime)/(double)CLOCKS_PER_SEC) * 1000;
+//	return ((clock() - startTime)/(double)CLOCKS_PER_SEC) * 1000;
 }
 
 void Trailblazer::initializeBoard()
@@ -40,11 +40,11 @@ void Trailblazer::initializeBoard()
 	
 }
 
-Vector<Square> Trailblazer::calculateForayPath(Vector< Vector<Square> > board, int row, int col)
+Vector<Square> Trailblazer::calculateForayPath(int row, int col)
 {
 	initializeBoard();
 	
-	int occupiedSquareCoords = {row, col};
+	int occupiedSquareCoords[2] = {row, col};
 	
 	for(int i = 0; i < 7; ++i)
 	{

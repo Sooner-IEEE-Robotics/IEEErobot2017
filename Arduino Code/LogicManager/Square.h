@@ -1,10 +1,13 @@
 #ifndef SQUARE_H
 #define SQUARE_H
 
+#include<Vector.h>
+
 class Square
 {
 	
 	public:
+    Square();
 		Square(int row, int col, bool isA7);
 		virtual ~Square();
 		
@@ -19,7 +22,7 @@ class Square
 		//Backtracking
 		void setupSquare();
 		bool getStatus();
-		int[] getCoordinates();
+		int* getCoordinates();
 		void addAllDirectionsToStack();
 		void addSquareToStack();
 		Square getNextAction();
@@ -31,6 +34,10 @@ class Square
 		bool isTunnel();
 		void setPartOfContiguousTunnelLayout();
 		bool isPartOfContiguousTunnelLayout();
+
+    //Backtracking Functionality
+    //Vector<Square> squaresBranchedFromStack;
+    //Vector<Square> directionsToConsiderStack;    
 		
 	protected:
 		
@@ -52,9 +59,7 @@ class Square
 		bool isA7;
 		bool status, originalStatus;
 		
-		//Backtracking Functionality
-		Vector<Square> squaresBranchedFromStack;
-		Vector<Square> directionsToConsiderStack;
+   
 };
 
 #endif
