@@ -7,10 +7,19 @@
 //Units to trigger obstacle detection (0-1023 mapped from 0 to 5 Volts)
 #define OBJECT_THRESHOLD 512 
 
+//Message Debug
+int MSG_LED = 13;
+
 double FORWARD_DIST = 20;
 float LEFT_TURN  = -90;
 float RIGHT_TURN = 90;
 float FULL_TURN = 180;
+
+enum State {
+	MAIN, IDLE_STATE, SEND
+};
+
+State stateMachine = IDLE_STATE;
 
 //Debug flags
 bool is_debug = false;
@@ -31,6 +40,7 @@ int B = 35, C = 37, D = 39; //B is MSB, D is LSB
 
 //DIO Map Communication OUT
 int E = 34, F = 36, G = 38, H = 40;
+int PR = 30; //pin to indicate that the package has been recieved
 
 //Message Output Interrupt Indicator
 int I = 42;
@@ -129,7 +139,8 @@ void resetGyro()
 
 //We need interrupts to make sure we have the most accurate data
 volatile bool mpuInterrupt = false;// indicates whether MPU interrupt pin has gone high
-void dmpDataReady() {
+void dmpDataReady() 
+{
     mpuInterrupt = true;
 }
 
@@ -159,6 +170,9 @@ void doRightEncoder()
 
 void getMessage()
 {
+	digitalWrite(MSG_LED, HIGH);
+	digitalWrite(E, LOW);
+	
 	int x = digitalRead(B);
 	int y = digitalRead(C);
 	int z = digitalRead(D);
@@ -174,15 +188,11 @@ void getMessage()
 		Serial.print(" DS: ");
 		Serial.println(driveState);
 	}
-	
-	//stateJustChanged = true;
-	
-	//stateJustChanged = false;
 			
 	driveComplete = false;
 	turnComplete = false;
 	
-	arcadeDrive(0,0); //Stop
+	arcadeDrive(0, 0); //Stop
 	delay(100); //Make sure we are really stopped
 	
 	//Reset
@@ -223,7 +233,63 @@ void getMessage()
 		idle(100);
 	}
 	
-	digitalWrite(E, LOW);
+	//mainControlLoop();
+	digitalWrite(MSG_LED, LOW);
+	stateMachine = MAIN;
+}
+
+void sendMessage()
+{
+	digitalWrite(MSG_LED, HIGH);
+	arcadeDrive(0,0);
+			
+	/* Read Square Sensors */
+	int l = 1, m = 0, n = 0, o = 0;
+	/*
+	//If the voltage is low on the Sharp Sensor, detect an obstacle.
+	if(analogRead(sharpAnalogPin) < OBJECT_THRESHOLD)
+	{
+		o = 1;
+		l = 0;
+	}
+	else
+	{
+		o = 2;
+	}
+	*/
+	
+	//m = digitalRead(metalDetectorPin);
+	
+	//mystery sensor for dead end tunnel.
+	n = 0;
+	
+	digitalWrite(E, l);
+	digitalWrite(F, m);
+	digitalWrite(G, n);
+	digitalWrite(H, o);
+	
+	//Send message with block statistics
+	if(lastIValue == LOW)
+	{
+		digitalWrite(I, HIGH);
+		lastIValue = HIGH;
+	}
+	else
+	{
+		digitalWrite(I, LOW);
+		lastIValue = LOW;
+	}
+	
+	/*
+	if(is_nav_debug)
+	{
+		Serial.print(l);
+		Serial.print(m);
+		Serial.print(n);
+		Serial.println(o);
+	}
+	*/
+	//digitalWrite(MSG_LED, LOW);
 }
 /*
 	End Interrupt Functions
@@ -379,6 +445,81 @@ void waitForInstructions()
 	End Driving Routines
 */
 
+/*
+	Control Loops
+*/
+void mainControlLoop()
+{
+	if((!driveComplete || !turnComplete))
+	{	
+		//If the robot is within a half inch of distance target, stop
+		if(abs(distance - distance_target) < 0.5)
+		{
+			X = 0;
+			driveComplete = true;
+		}
+	
+		//Get the output variables based on PID Control
+		if(!isTurnInPlace)
+		{
+			X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
+		}
+		else
+		{
+			driveComplete = true;
+			X = 0;
+		}
+		
+		Y = turningPID.GetOutput(0, gyro_error); //Calculate the turning power of the motors
+	
+		//Don't output if the output won't move the robot (save power)
+		X = filter(X);
+		Y = filter(Y);
+		
+		if(is_nav_debug)
+		{
+			Serial.print(X);
+			Serial.print(" ");
+			Serial.println(Y);
+		}
+	
+		//if we are only off by 1.5 degrees, dont turn
+		if(abs(gyro_error) < 1.5)
+		{
+			Y = 0;
+			turnComplete = true;
+		}
+		else
+		{
+			turnComplete = false;
+		}
+		
+		arcadeDrive(X,Y);
+		
+		if(is_nav_debug)
+		{
+			//Serial.print("X: ");
+			//Serial.print(X);
+			//Serial.print("\tY: ");
+			//Serial.print(Y);
+			//Serial.print("\tYAW: \t");
+			//Serial.print(yaw);
+			//Serial.print("\tYAW ERROR: \t");
+			//Serial.println(gyro_error);
+			//Serial.print("\tDistance: ");
+			//Serial.println(distance);
+		}
+	}
+	else
+	{
+		arcadeDrive(0, 0);
+		stateMachine = SEND;
+	}
+}
+/*
+	End Control Loops
+*/
+
 void setup() 
 {
   pinMode(leftEncoderA, INPUT);
@@ -414,6 +555,7 @@ void setup()
   pinMode(G, OUTPUT);
   pinMode(H, OUTPUT);
   pinMode(I, OUTPUT); //Interrupt the AI by changing this
+  pinMode(PR, INPUT);
   
   //Set to default ready mode (Motion complete, waiting for instructions)
   digitalWrite(E, HIGH);
@@ -466,11 +608,19 @@ void setup()
   }
   else
   {
-  if(is_debug)
+	if(is_debug)
     {
       Serial.println("Error connecting to MPU6050");
+	}
   }
-  }
+  
+	digitalWrite(MSG_LED, HIGH);
+	delay(500);
+	digitalWrite(MSG_LED, LOW);
+	delay(500);
+	digitalWrite(MSG_LED, HIGH);
+	delay(500);
+	digitalWrite(MSG_LED, LOW);
 }
 
 void loop() 
@@ -493,13 +643,19 @@ void loop()
   //while the gyro isn't giving any data, do other things
   while(!mpuInterrupt && packetSize >= fifoCount)
   {	
+	//Get all sensor data
+	distance = ((double)(kL*leftEncoderPos) + (double)(kR * rightEncoderPos))/2;
+	
+	//Calculate gyro error
+	gyro_error = yaw - targetYaw;
+	//gyro_error = fmod((gyro_error + 180), 360.0) - 180;
+	if(gyro_error > 180)
+	{
+		gyro_error = -(360 - gyro_error); 
+	}
+	
 	if(is_debug)
 	{
-		//Serial.write(27);       // ESC command
-		//Serial.print("[2J");    // clear screen command
-		//Serial.write(27);
-		//Serial.print("[H");     //cursor to home command
-		
 		//Now that the screen is cleared, we can print the latest data
 		Serial.print("Left: ");
 		Serial.println(leftEncoderPos);
@@ -510,125 +666,25 @@ void loop()
 	}
 	else
 	{
-		distance = ((double)(kL*leftEncoderPos) + (double)(kR * rightEncoderPos))/2;
-		
-		//Calculate gyro error
-		gyro_error = yaw - targetYaw;
-		//gyro_error = fmod((gyro_error + 180), 360.0) - 180;
-		if(gyro_error > 180)
+		if(stateMachine == MAIN)
 		{
-			gyro_error = -(360 - gyro_error); 
+			mainControlLoop();
 		}
-				
-		if(driveComplete == false || turnComplete == false)
+		else if(stateMachine == SEND)
 		{
-			//If the robot is within a half inch of distance target, stop
-			if((distance - distance_target) < 0.5)
+			Serial.println("Sending...");
+			while(!digitalRead(PR))
 			{
-				X = 0;
-				driveComplete = true;
+				sendMessage();
+				delay(500);
 			}
-		
-			//Get the output variables based on PID Control
-			if(!isTurnInPlace)
-			{
-				X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
-			}
-			else
-			{
-				driveComplete = true;
-				X = 0;
-			}
-			
-			Y = turningPID.GetOutput(0, gyro_error); //Calculate the turning power of the motors
-		
-			//Don't output if the output won't move the robot (save power)
-			X = filter(X);
-			Y = filter(Y);
-			
-			if(is_nav_debug)
-			{
-				Serial.print(X);
-				Serial.print(" ");
-				Serial.println(Y);
-			}
-		
-			//if we are only off by 1.5 degrees, dont turn
-			if(abs(gyro_error) < 1.5)
-			{
-				Y = 0;
-				turnComplete = true;
-			}
-			else
-			{
-				turnComplete = false;
-			}
-			
-			arcadeDrive(X,Y);
-			
-			if(is_nav_debug)
-			{
-				//Serial.print("X: ");
-				//Serial.print(X);
-				//Serial.print("\tY: ");
-				//Serial.print(Y);
-				//Serial.print("\tYAW: \t");
-				//Serial.print(yaw);
-				//Serial.print("\tYAW ERROR: \t");
-				//Serial.println(gyro_error);
-				//Serial.print("\tDistance: ");
-				//Serial.println(distance);
-			}
+			Serial.println("Sent!");
+			digitalWrite(MSG_LED, LOW);
+			stateMachine = IDLE_STATE;
 		}
 		else
 		{
-			/* Read Square Sensors */
-			int l = 1, m = 0, n = 0, o = 0;
-			/*
-			//If the voltage is low on the Sharp Sensor, detect an obstacle.
-			if(analogRead(sharpAnalogPin) < OBJECT_THRESHOLD)
-			{
-				o = 1;
-				l = 0;
-			}
-			else
-			{
-				o = 2;
-			}
-			*/
-			
-			//m = digitalRead(metalDetectorPin);
-			
-			//mystery sensor for dead end tunnel.
-			n = 0;
-			
-			digitalWrite(E, l);
-			digitalWrite(F, m);
-			digitalWrite(G, n);
-			digitalWrite(H, o);
-			
-			//Send message with block statistics
-			if(lastIValue == LOW)
-			{
-				digitalWrite(I, HIGH);
-				lastIValue = HIGH;
-			}
-			else
-			{
-				digitalWrite(I, LOW);
-				lastIValue = LOW;
-			}
-			
-			/*
-			if(is_nav_debug)
-			{
-				Serial.print(l);
-				Serial.print(m);
-				Serial.print(n);
-				Serial.println(o);
-			}
-			*/
-			
+			arcadeDrive(0, 0);
 		}
 	}
 }
@@ -655,7 +711,7 @@ void loop()
     while (fifoCount < packetSize)
     {
       fifoCount = mpu.getFIFOCount();
-    }     
+    }
 
     // read a packet from FIFO
     mpu.getFIFOBytes(fifoBuffer, packetSize);
@@ -689,9 +745,10 @@ void loop()
 	{
 		//Serial.print(distance);
 		//Serial.print(" vs. ");
-		//Serial.println(distance_target);
-		//Serial.println(driveComplete);
+		//Serial.print(distance_target);
+		Serial.print(digitalRead(PR));
+		Serial.print("\t");
+		Serial.println(stateMachine);
 	}
 	
 }
-
