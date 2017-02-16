@@ -116,6 +116,6 @@ void Comms::notifyReady(int notification)
 
 bool Comms::getReady()
 {
-	return Serial.available() > 0;
+	//return Serial.available() > 0;
 	//return digitalRead(readyPin_in);
 }
