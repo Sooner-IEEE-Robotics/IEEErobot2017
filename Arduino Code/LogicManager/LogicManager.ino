@@ -14,13 +14,10 @@ int slave_select = 53;
 SoonerColorduinoMaster scm(8);
 
 //Message System (IN)
-int E = 4, F = 5, G = 6, H = 7;
-int L, M, N, O;
-
-int PR = 8; //Set high to indicate that package from RM has been recieved
+int E = 8, F = 9, G = 10, INSTRUCT = 11;
 
 //Message System (OUT)
-int B = 9, C = 10, D = 11;
+int NAV_READY = 7;
 int I = 12;
 int lastIValue = HIGH;
 
@@ -41,57 +38,28 @@ bool progStart = true;
 //TODO: Replace sampleMessages with an actual path.
 void sendMessage(int messageToSend, bool useArg)
 {	
-	digitalWrite(MSG_LED, HIGH);
-
 	if(!useArg)
 	{
 		if(index < sizeof(sampleMessages))
 		{
 			messageToSend = sampleMessages[index];
 		}
-	}	
+	}
 	
-	int x = messageToSend & 4;
-	int y = messageToSend & 2;
+	int x = (messageToSend & 4)>>2;
+	int y = (messageToSend & 2)>>1;
 	int z = messageToSend & 1;
 	
-	digitalWrite(B, x);
-	digitalWrite(C, y);
-	digitalWrite(D, z);	
+	digitalWrite(E, x);
+	digitalWrite(F, y);
+	digitalWrite(G, z);
 	
-	if(lastIValue == LOW)
-	{
-		digitalWrite(I, HIGH);
-		lastIValue = HIGH;
-	}
-	else
-	{
-		digitalWrite(I, LOW);
-		lastIValue = LOW;
-	}
-	
-	Serial.print(messageToSend);
-	
+	digitalWrite(INSTRUCT, HIGH);
 }
 
 void getMessage()
 {
-	digitalWrite(PR, HIGH);
-	digitalWrite(MSG_LED, HIGH);
-	
-	L = digitalRead(E);
-	M = digitalRead(F);
-	N = digitalRead(G);
-	O = digitalRead(H);
-	
-	delay(500);
-	
-	
-	if(is_debug)
-	{
-		//Serial.println(L);
-	}
-	
+	/*
 	if(M == 1)
 	{
 		//scm.setPixelRed();
@@ -110,16 +78,9 @@ void getMessage()
 	}
 	else if(L == 1) //If motion complete
 	{
-		Serial.println("Sending...");
-		while(digitalRead(E))
+		if(index < sizeof(sampleMessages))
 		{
 			sendMessage(0, false);
-			delay(250);
-		}
-		Serial.println(" was sent!");
-		
-		if(index < sizeof(sampleMessages)-1)
-		{
 			++index;
 		}
 		else
@@ -127,28 +88,14 @@ void getMessage()
 			sendMessage(0, true);
 		}
 	}
-	
-	//digitalWrite(PR, LOW);
-	digitalWrite(MSG_LED, LOW);
+	*/
 }
 
 void stopRobot()
 {
-	digitalWrite(B, 1);
-	digitalWrite(C, 1);
-	digitalWrite(D, 1);	
-	
-	if(lastIValue == LOW)
-	{
-		digitalWrite(I, HIGH);
-		lastIValue = HIGH;
-	}
-	else
-	{
-		digitalWrite(I, LOW);
-		lastIValue = LOW;
-	}
-	
+	Serial.write(0);
+	Serial.write(0);
+	Serial.write(0);
 }
 
 void setup() 
@@ -160,19 +107,15 @@ void setup()
 	pinMode(I, OUTPUT);
 	
 	//AI -> NAV multiplexer
-	pinMode(B, OUTPUT);
-	pinMode(C, OUTPUT);
-	pinMode(D, OUTPUT);
+	pinMode(NAV_READY, INPUT);
 	
 	//NAV -> AI Pins
-	pinMode(E, INPUT);
-	pinMode(F, INPUT);
-	pinMode(G, INPUT);
-	pinMode(H, INPUT);
+	pinMode(E, OUTPUT);
+	pinMode(F, OUTPUT);
+	pinMode(G, OUTPUT);
+	pinMode(INSTRUCT, OUTPUT);
 	
 	//Pin to indicate that transmission of data was recieved
-	pinMode(PR, OUTPUT);
-	digitalWrite(PR, LOW);
 	
 	pinMode(MSG_LED, OUTPUT);
 	digitalWrite(MSG_LED, HIGH);
@@ -209,18 +152,12 @@ void loop()
 	else //Competition mode
 	{
 		//If the start button has been pressed, begin the driving sequence
-		if(robotStart && digitalRead(E) && firstRun)
+		if(robotStart && digitalRead(NAV_READY) && firstRun)
 		{
 			delay(1000); //Pause so the button can stop being pressed
-			Serial.println(true);
 			
-			Serial.println("Sending...");
-			while(digitalRead(E))
-			{
-				sendMessage(1, false);
-				delay(1000);
-			}
-			Serial.println("Sent!");
+			sendMessage(1, false);
+			delay(1000);
 			
 			if(index < sizeof(sampleMessages))
 			{
@@ -231,7 +168,13 @@ void loop()
 		}
 	}
 	//Serial.println(digitalRead(E));
-	digitalWrite(PR, LOW);
+	
+	if(digitalRead(NAV_READY))
+	{
+		//TODO: Read sensors before sending message
+		sendMessage(0, false);
+	}
+	
 	delay(50);
 }
 
