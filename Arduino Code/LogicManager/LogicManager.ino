@@ -54,8 +54,8 @@ void sendMessage(int messageToSend, bool useArg)
 	int y = (messageToSend & 2)>>1;
 	int z = messageToSend & 1;
 	*/
-	int x = messageToSend & 4;
-	int y = messageToSend & 2;
+	int x = (messageToSend & 4)>>2;
+	int y = (messageToSend & 2)>>1;
 	int z = messageToSend & 1;
 	
 	digitalWrite(E, x);
