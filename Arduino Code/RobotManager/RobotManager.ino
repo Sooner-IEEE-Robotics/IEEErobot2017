@@ -16,7 +16,7 @@ float RIGHT_TURN = 90;
 float FULL_TURN = 180;
 
 enum State {
-	MAIN, IDLE_STATE, SEND
+	MAIN_STATE, IDLE_STATE, SEND
 };
 
 State stateMachine = IDLE_STATE;
@@ -36,10 +36,10 @@ int driveState = 0;
 float startYaw = 0;
 
 //DIO Map Communication IN
-int B = 35, C = 37, D = 39; //B is MSB, D is LSB
+int E = 34, F = 36, G = 38;
 
 //DIO Map Communication OUT
-int E = 34, F = 36, G = 38, H = 40;
+int NAV_READY = 35;
 int PR = 30; //pin to indicate that the package has been recieved
 
 //Message Output Interrupt Indicator
@@ -170,24 +170,17 @@ void doRightEncoder()
 
 void getMessage()
 {
-	digitalWrite(MSG_LED, HIGH);
-	digitalWrite(E, LOW);
-	
-	int x = digitalRead(B);
-	int y = digitalRead(C);
-	int z = digitalRead(D);
+    int x = digitalRead(E);
+    int y = digitalRead(F);
+    int z = digitalRead(G);
 	
 	driveState = (x<<2)|(y<<1)|z;
 	
-	if(is_nav_debug)
-	{
-		Serial.print(x);
-		Serial.print(y);
-		Serial.print(z);
-		
-		Serial.print(" DS: ");
-		Serial.println(driveState);
-	}
+	Serial.print(x);
+	Serial.print(y);
+	Serial.print(z);
+	Serial.print(" DS: ");
+	Serial.println(driveState);
 			
 	driveComplete = false;
 	turnComplete = false;
@@ -233,63 +226,17 @@ void getMessage()
 		idle(100);
 	}
 	
-	//mainControlLoop();
 	digitalWrite(MSG_LED, LOW);
-	stateMachine = MAIN;
+	
+	digitalWrite(NAV_READY, LOW);
+	stateMachine = MAIN_STATE;
 }
 
 void sendMessage()
 {
-	digitalWrite(MSG_LED, HIGH);
-	arcadeDrive(0,0);
-			
-	/* Read Square Sensors */
-	int l = 1, m = 0, n = 0, o = 0;
-	/*
-	//If the voltage is low on the Sharp Sensor, detect an obstacle.
-	if(analogRead(sharpAnalogPin) < OBJECT_THRESHOLD)
-	{
-		o = 1;
-		l = 0;
-	}
-	else
-	{
-		o = 2;
-	}
-	*/
+	digitalWrite(NAV_READY, HIGH);
 	
-	//m = digitalRead(metalDetectorPin);
-	
-	//mystery sensor for dead end tunnel.
-	n = 0;
-	
-	digitalWrite(E, l);
-	digitalWrite(F, m);
-	digitalWrite(G, n);
-	digitalWrite(H, o);
-	
-	//Send message with block statistics
-	if(lastIValue == LOW)
-	{
-		digitalWrite(I, HIGH);
-		lastIValue = HIGH;
-	}
-	else
-	{
-		digitalWrite(I, LOW);
-		lastIValue = LOW;
-	}
-	
-	/*
-	if(is_nav_debug)
-	{
-		Serial.print(l);
-		Serial.print(m);
-		Serial.print(n);
-		Serial.println(o);
-	}
-	*/
-	//digitalWrite(MSG_LED, LOW);
+	stateMachine = IDLE_STATE;
 }
 /*
 	End Interrupt Functions
@@ -544,28 +491,19 @@ void setup()
   pinMode(left_in_2, OUTPUT);
   
   //Message In Pins
-  pinMode(B, INPUT);
-  pinMode(C, INPUT);
-  pinMode(D, INPUT);
   attachInterrupt(4, getMessage, CHANGE); //Pin 19 interrupt
   
   //Message Out Pins
-  pinMode(E, OUTPUT);
-  pinMode(F, OUTPUT);
-  pinMode(G, OUTPUT);
-  pinMode(H, OUTPUT);
-  pinMode(I, OUTPUT); //Interrupt the AI by changing this
-  pinMode(PR, INPUT);
+  pinMode(E, INPUT);
+  pinMode(F, INPUT);
+  pinMode(G, INPUT);
+  pinMode(NAV_READY, OUTPUT); //Tell the AI we are ready
   
   //Set to default ready mode (Motion complete, waiting for instructions)
-  digitalWrite(E, HIGH);
-  digitalWrite(F, LOW);
-  digitalWrite(G, LOW);
-  digitalWrite(H, LOW);
-  digitalWrite(I, LOW);
-  
+  digitalWrite(NAV_READY, HIGH);
+
   //Setup metal detector pin to get readings
-  pinMode(metalDetectorPin, INPUT);
+  //pinMode(metalDetectorPin, INPUT);
   
   //Set output range
   turningPID.SetOutputRange(0.4, -0.4);
@@ -666,27 +604,24 @@ void loop()
 	}
 	else
 	{
-		if(stateMachine == MAIN)
+		if(stateMachine == MAIN_STATE)
 		{
 			mainControlLoop();
 		}
 		else if(stateMachine == SEND)
 		{
-			Serial.println("Sending...");
-			while(!digitalRead(PR))
-			{
-				sendMessage();
-				delay(500);
-			}
-			Serial.println("Sent!");
+			sendMessage();
+			
 			digitalWrite(MSG_LED, LOW);
-			stateMachine = IDLE_STATE;
 		}
-		else
+		else if(stateMachine == IDLE_STATE)
 		{
+			digitalWrite(NAV_READY, HIGH);
 			arcadeDrive(0, 0);
 		}
 	}
+	
+	delay(10);
 }
   
   // reset interrupt flag and get INT_STATUS byte
@@ -746,9 +681,11 @@ void loop()
 		//Serial.print(distance);
 		//Serial.print(" vs. ");
 		//Serial.print(distance_target);
-		Serial.print(digitalRead(PR));
-		Serial.print("\t");
-		Serial.println(stateMachine);
+		////Serial.print(digitalRead(PR));
+		//Serial.print("\t");
+		//Serial.print(fifoCount);
+		//Serial.print("\t");
+		//Serial.println(stateMachine);
 	}
 	
 }
