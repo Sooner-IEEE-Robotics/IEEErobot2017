@@ -22,7 +22,7 @@ enum State {
 State stateMachine = IDLE_STATE;
 
 //Debug flags
-bool is_debug = false;
+bool is_debug = true;
 bool is_nav_debug = true;
 
 //Navigation mode flags
@@ -594,6 +594,7 @@ void loop()
 	
 	if(is_debug)
 	{
+		/*
 		//Now that the screen is cleared, we can print the latest data
 		Serial.print("Left: ");
 		Serial.println(leftEncoderPos);
@@ -601,6 +602,17 @@ void loop()
 		Serial.println(rightEncoderPos);
 		Serial.print("YAW: \t");
 		Serial.println(yaw, 4);
+		*/
+		forwardOne();
+		mainControlLoop();
+		if(stateMachine == IDLE_STATE)
+		{
+			arcadeDrive(0,0);
+			resetEncoders();
+			resetGyro();
+			delay(1000);
+			stateMachine = MAIN_STATE;
+		}
 	}
 	else
 	{
