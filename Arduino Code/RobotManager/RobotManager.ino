@@ -4,19 +4,13 @@
 #include "SPI.h"
 #include "PIDController.h"
 
-//Units to trigger obstacle detection (0-1023 mapped from 0 to 5 Volts)
-#define OBJECT_THRESHOLD 512 
-
-//Message Debug
-int MSG_LED = 13;
-
 double FORWARD_DIST = 20;
 float LEFT_TURN  = -90;
 float RIGHT_TURN = 90;
 float FULL_TURN = 180;
 
 enum State {
-	MAIN_STATE, IDLE_STATE, SEND
+	MAIN_STATE, IDLE_STATE
 };
 
 State stateMachine = IDLE_STATE;
@@ -29,37 +23,12 @@ bool is_nav_debug = true;
 bool isTurnInPlace = false;
 bool turnComplete = false;
 bool driveComplete = false;
-
-bool stateJustChanged = false;
-int driveState = 0;
-
+bool isMotionFinished = false; //When the main control loop decides that it is finished, set this to true
 float startYaw = 0;
 
-//DIO Map Communication IN
-int E = 34, F = 36, G = 38;
 
-//DIO Map Communication OUT
-int NAV_READY = 35;
-int PR = 30; //pin to indicate that the package has been recieved
-
-//Message Output Interrupt Indicator
-int I = 42;
-int lastIValue = LOW;
-
-//Object sensor
-int sharpAnalogPin = 0;
-float sharpValue;
-bool isPathBlocked = false;
-
-//Metal Detector Stuff
-int metalDetectorPin = 28;
-
-//The device itself
+//The gyro device itself
 MPU6050 mpu;
-
-//Variables required to have a gyro reset
-bool firstRun = true;
-bool progFirstRun = true;
 float reference[3]; //[yaw, pitch, roll]
 
 // MPU control/status vars
@@ -79,12 +48,6 @@ VectorFloat gravity;    // [x, y, z]            gravity vector
 float euler[3];         // [psi, theta, phi]    Euler angle container
 float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
 
-//Encoder Pins
-int leftEncoderA = 18;
-int leftEncoderB = 17;
-int rightEncoderA = 3;
-int rightEncoderB = 4;
-
 int leftEncoderPos = 0;
 int rightEncoderPos = 0;
 float yaw = 0;
@@ -93,12 +56,20 @@ int n = LOW, m = LOW;
 int leftEncoderALast = LOW;
 int rightEncoderALast = LOW;
 
-//Navigation variables
 int left_motor_pin = 6, left_in_1 = 9, left_in_2 = 10;
 int right_motor_pin = 44, right_in_1 = 48, right_in_2 = 46;
+int leftEncoderA = 18;
+int leftEncoderB = 17;
+int rightEncoderA = 3;
+int rightEncoderB = 4;
+int moving = 35;
+int instruct = 30;   
+
+int E = 11, F = 12, G = 13;
+int Et = 0, Ft = 0, Gt = 0;
 
 
-double distance = 0.0, gyro_error;
+double distance = 0.0, gyro_error = 0;
 double kR = -0.00395, kL = 0.00418;//Encoder constants to convert to inches
 double Y, X;
 
@@ -167,81 +138,6 @@ void doRightEncoder()
     --rightEncoderPos;
   }
 }
-
-void getMessage()
-{
-    int x = digitalRead(E);
-    int y = digitalRead(F);
-    int z = digitalRead(G);
-	
-	driveState = (x<<2)|(y<<1)|z;
-	
-	Serial.print(x);
-	Serial.print(y);
-	Serial.print(z);
-	Serial.print(" DS: ");
-	Serial.println(driveState);
-			
-	driveComplete = false;
-	turnComplete = false;
-	
-	arcadeDrive(0, 0); //Stop
-	delay(100); //Make sure we are really stopped
-	
-	//Reset
-	resetGyro();
-	resetEncoders();
-	
-	if(driveState == 0)
-	{
-		idle(50);
-	}
-	else if(driveState == 1)
-	{
-		forwardOne();
-	}
-	else if(driveState == 2)
-	{
-		leftTurn();
-	}
-	else if(driveState == 3)
-	{
-		rightTurn();
-	}
-	else if(driveState == 4)
-	{
-		fullTurn();
-	}
-	else if(driveState == 5)
-	{
-		cacheSequenceClosedLoop();
-	}
-	else if(driveState == 6)
-	{
-		//waitForInstructions();
-		idle(1000);
-	}
-	else
-	{
-		idle(100);
-	}
-	
-	digitalWrite(MSG_LED, LOW);
-	
-	digitalWrite(NAV_READY, LOW);
-	stateMachine = MAIN_STATE;
-}
-
-void sendMessage()
-{
-	digitalWrite(NAV_READY, HIGH);
-	
-	stateMachine = IDLE_STATE;
-}
-/*
-	End Interrupt Functions
-*/
-
 
 /*
 	Driving functions
@@ -378,16 +274,6 @@ void idle(int ms)
 	driveComplete = true;
 	turnComplete = true;
 }
-
-void waitForInstructions()
-{
-	while(!stateJustChanged)
-	{
-		arcadeDrive(0, 0);
-		distance_target = 0;
-		targetYaw = 0;
-	}
-}
 /*
 	End Driving Routines
 */
@@ -395,7 +281,7 @@ void waitForInstructions()
 /*
 	Control Loops
 */
-void mainControlLoop()
+bool mainControlLoop()
 {
 	if((!driveComplete || !turnComplete))
 	{	
@@ -456,248 +342,146 @@ void mainControlLoop()
 			//Serial.print("\tDistance: ");
 			//Serial.println(distance);
 		}
+		
+		return false;
 	}
 	else
 	{
-		arcadeDrive(0, 0);
-		stateMachine = SEND;
+		return true;
 	}
 }
 /*
 	End Control Loops
 */
-
-void setup() 
-{
-  pinMode(leftEncoderA, INPUT);
-  pinMode(leftEncoderB, INPUT);
-  digitalWrite(leftEncoderA, HIGH);//pull up resistor
-  digitalWrite(leftEncoderB, HIGH);//pull up resistor
-  
-  pinMode(rightEncoderA, INPUT);
-  pinMode(rightEncoderB, INPUT);
-  digitalWrite(rightEncoderA, HIGH);//pull up resistor
-  digitalWrite(rightEncoderB, HIGH);//pull up resistor
-
-  attachInterrupt(1, doRightEncoder, CHANGE); //pin 3 interrupt
-  attachInterrupt(5, doLeftEncoder, CHANGE);
-
-  //Motor Initialization
-  pinMode(left_motor_pin, OUTPUT);
-  pinMode(right_motor_pin, OUTPUT);
-  pinMode(right_in_1, OUTPUT);
-  pinMode(right_in_2, OUTPUT);
-  pinMode(left_in_1, OUTPUT);
-  pinMode(left_in_2, OUTPUT);
-  
-  //Message In Pins
-  attachInterrupt(4, getMessage, CHANGE); //Pin 19 interrupt
-  
-  //Message Out Pins
-  pinMode(E, INPUT);
-  pinMode(F, INPUT);
-  pinMode(G, INPUT);
-  pinMode(NAV_READY, OUTPUT); //Tell the AI we are ready
-  
-  //Set to default ready mode (Motion complete, waiting for instructions)
-  digitalWrite(NAV_READY, HIGH);
-
-  //Setup metal detector pin to get readings
-  //pinMode(metalDetectorPin, INPUT);
-  
-  //Set output range
-  turningPID.SetOutputRange(0.4, -0.4);
-  distancePID.SetOutputRange(0.6, -0.6);
-
-  
-  Wire.begin();
-  if(is_debug || is_nav_debug)
-  {
-	Serial.begin(115200);
-  }
-  
-  //Serial3.begin(115200);
-  
-  //Gyro initialization
-  if(is_debug)
-  {
-    Serial.println("Initializing MPU6050...");
-  }
-  mpu.initialize();
-  
-  if(is_debug)
-  {
-    Serial.println(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
-  }
-  
-  devStatus = mpu.dmpInitialize();
-  
-  if(devStatus == 0)
-  {
-    mpu.setDMPEnabled(true);
-    
-    //Attaches the interrupt used for detecting new data
-    attachInterrupt(0, dmpDataReady, RISING);
-    
-    mpuIntStatus = mpu.getIntStatus();
-    dmpReady = true;
-    
-    packetSize = mpu.dmpGetFIFOPacketSize();
-  }
-  else
-  {
-	if(is_debug)
-    {
-      Serial.println("Error connecting to MPU6050");
-	}
-  }
-  
-	digitalWrite(MSG_LED, HIGH);
-	delay(500);
-	digitalWrite(MSG_LED, LOW);
-	delay(500);
-	digitalWrite(MSG_LED, HIGH);
-	delay(500);
-	digitalWrite(MSG_LED, LOW);
+//******************************STATE MGR BLOCK*********************************/
+void state_mgr(int instructions){
+          
+		driveComplete = false;
+		turnComplete = false;
+		arcadeDrive(0, 0);
+		
+		delay(100);
+		
+		resetEncoders();
+         
+          switch(instructions){//program enters the state and does whatever action it was told to do; currently 8 states available
+              case 0:                         //state 0 
+                  idle(1000);                   //these are of course practice instructions
+                  Serial.println("MCU 0");
+                break;
+              case 1:                         //state 1, etc
+                forwardOne();
+                Serial.println("MCU 1");
+                break;
+              case 2:
+                leftTurn();
+                Serial.println("MCU 2");
+                break;
+              case 3:
+                rightTurn();
+                Serial.println("MCU 3");
+                break;
+              case 4:
+				fullTurn();
+                break;
+              case 5:
+				idle(1000);
+                break;
+              case 6:
+			  idle(1000);
+                break;
+              case 7:
+			  idle(1000);
+                break;
+              }
+           
+		   stateMachine = MAIN_STATE;
+            Serial.println("STATE_MGR");
 }
+//***********************************END STATE BLOCK******************************//
 
-void loop() 
-{ 
-  if(progFirstRun)
-  {
-    delay(15000);
-    progFirstRun = false;
-  }
-  
-  if(!dmpReady) //Die if there are errors
-  {
-	if(is_debug)
-	{
-		Serial.println("RIP: There were errors.");
-	}
-    return;
-  }
-  
-  //while the gyro isn't giving any data, do other things
-  while(!mpuInterrupt && packetSize >= fifoCount)
-  {	
-	//Get all sensor data
+
+//*********************************SETUP BLOCK************************************//
+void setup() //Initilizes some pins
+{
+    Serial.begin(9600);
+    //encoder initialization
+    pinMode(leftEncoderA, INPUT);  //left encoder
+    pinMode(leftEncoderB, INPUT);
+    digitalWrite(leftEncoderA, HIGH);//pull up resistor
+    digitalWrite(leftEncoderB, HIGH);//pull up resistor
+    pinMode(rightEncoderA, INPUT);  //right encoder
+    pinMode(rightEncoderB, INPUT);
+    digitalWrite(rightEncoderA, HIGH);//pull up resistor
+    digitalWrite(rightEncoderB, HIGH);//pull up resistor
+    
+    //Motor Initialization
+    pinMode(left_motor_pin, OUTPUT);     //enable/disable
+    pinMode(right_motor_pin, OUTPUT);    //enable/disable
+    pinMode(right_in_1, OUTPUT);
+    pinMode(right_in_2, OUTPUT);
+    pinMode(left_in_1, OUTPUT);
+    pinMode(left_in_2, OUTPUT);
+	
+	//Encoder
+	attachInterrupt(1, doRightEncoder, CHANGE); //pin 3 interrupt
+	attachInterrupt(5, doLeftEncoder, CHANGE);
+    
+    //Communication pins
+    pinMode(E, INPUT);  // state bit 0
+    pinMode(F, INPUT);  // state bit 1
+    pinMode(G, INPUT);  // state bit 2
+    pinMode(instruct, INPUT); //lets the robot know that instructions on the state lines are valid; high when invalid; low when valid
+    pinMode(moving, OUTPUT);  //asserts low when robot is moving, high when robot is stationary
+    digitalWrite(moving, HIGH); //tells AI that the robot is not moving at this time
+    attachInterrupt(1, doRightEncoder, CHANGE); //pin 3 interrupt
+    attachInterrupt(5, doLeftEncoder, CHANGE);  
+    delay(5000);  //setup delay
+}
+//**************END SETUP BLOCK***************************************************
+
+
+
+//*********************************************MAIN LOOP*********************************************
+void loop() {
+    
 	distance = ((double)(kL*leftEncoderPos) + (double)(kR * rightEncoderPos))/2;
 	
-	//Calculate gyro error
-	gyro_error = yaw - targetYaw;
-	//gyro_error = fmod((gyro_error + 180), 360.0) - 180;
-	if(gyro_error > 180)
+	if(stateMachine == IDLE_STATE)
 	{
-		gyro_error = -(360 - gyro_error); 
-	}
-	
-	if(is_debug)
-	{
-		/*
-		//Now that the screen is cleared, we can print the latest data
-		Serial.print("Left: ");
-		Serial.println(leftEncoderPos);
-		Serial.print("Right: ");
-		Serial.println(rightEncoderPos);
-		Serial.print("YAW: \t");
-		Serial.println(yaw, 4);
-		*/
-		forwardOne();
-		mainControlLoop();
-		if(stateMachine == IDLE_STATE)
+		arcadeDrive(0,0);
+		//setup intializes automatically in the arduino ide
+		if(digitalRead(instruct)==HIGH )    //VERY IMPORTANT, loops while there are no instructions present; exits loop when instructions are asserted
+		{}
+		else
 		{
-			arcadeDrive(0,0);
-			resetEncoders();
-			resetGyro();
-			delay(1000);
+			digitalWrite(moving,LOW);  //VERY IMPORTANT; disallows instructions, must be activated very quickly after the detection of a LOW instruction line
+			Et = digitalRead(E);      //these statements input the state
+			Ft = digitalRead(F);
+			Gt = digitalRead(G);
+			
+			
+			//***********Whatever code can be relatively safely placed anywhere between here and state_mgr without significantly affecting the bot's operation
+			
+			
+			
+			state_mgr(Et + 2*Ft + 4*Gt);    //sends the proper state, avoids use of bitshifting due to bugginess; state mgr will reset moving to HIGH when it is finished with its task
+			
 			stateMachine = MAIN_STATE;
 		}
 	}
-	else
+    else
 	{
-		if(stateMachine == MAIN_STATE)
-		{
-			mainControlLoop();
-		}
-		else if(stateMachine == SEND)
-		{
-			sendMessage();
-			
-			digitalWrite(MSG_LED, LOW);
-		}
-		else if(stateMachine == IDLE_STATE)
-		{
-			digitalWrite(NAV_READY, HIGH);
-			arcadeDrive(0, 0);
-		}
-	}
-	
-	delay(10);
-}
-  
-  // reset interrupt flag and get INT_STATUS byte
-  mpuInterrupt = false;
-  mpuIntStatus = mpu.getIntStatus();
-  
-  fifoCount = mpu.getFIFOCount();
-  
-  //check for overflow (should not overflow often)
-  if ((mpuIntStatus & 0x10) || fifoCount == 1024) 
-  {
-        // reset so we can continue cleanly
-        mpu.resetFIFO();
-    if(is_debug)
-    {
-          Serial.println(F("FIFO overflow!"));
-    }
-    } 
-  else if (mpuIntStatus & 0x02) // otherwise, check for DMP data ready interrupt (this should happen frequently)
-  {
-    // wait for correct available data length, should be a VERY short wait
-    while (fifoCount < packetSize)
-    {
-      fifoCount = mpu.getFIFOCount();
-    }
+      //note bot will iterate very quickly through states if it does not receive a proper state and enter the MCU function as currently coded
 
-    // read a packet from FIFO
-    mpu.getFIFOBytes(fifoBuffer, packetSize);
-        
-    // track FIFO count here in case there is > 1 packet available
-    // (this lets us immediately read more without waiting for an interrupt)
-    fifoCount -= packetSize;
-
-    //Get Yaw, Pitch and Roll
-    mpu.dmpGetQuaternion(&q, fifoBuffer);
-    mpu.dmpGetGravity(&gravity, &q);
-    mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-  
-    yaw = ((ypr[0] - reference[0]) * 180 / M_PI);
-    if(yaw < 0)
-    {
-      yaw = 360 + yaw;
-    }
-    
-    if(firstRun)
-    {
-      resetGyro();
-
-      turningPID.reinitialize(yaw);
+      //********code could theoretically go here safely as well, although this is after the bot has moved
+      isMotionFinished = mainControlLoop();
+	  
+      if(isMotionFinished)
+	  {
+		  digitalWrite(moving, HIGH); //VERY IMPORTANT, allows further instructions
+		  stateMachine = IDLE_STATE;
+	  }
       
-      firstRun = false;
-    }
-  }  
-  
-	if(is_nav_debug)
-	{
-		//Serial.print(distance);
-		//Serial.print(" vs. ");
-		//Serial.print(distance_target);
-		////Serial.print(digitalRead(PR));
-		//Serial.print("\t");
-		//Serial.print(fifoCount);
-		//Serial.print("\t");
-		//Serial.println(stateMachine);
 	}
-	
 }

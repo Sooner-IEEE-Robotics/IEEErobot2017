@@ -64,18 +64,6 @@ void arcadeDrive(float y_power, float turn_power, int leftPin, int rightPin)
   digitalWrite(rightPin, right);
 }
 
-float getSPIData(int id)
-{
-	SPI.transfer(id);
-	
-	unsigned char bit1 = SPI.transfer(0);
-	unsigned char bit2 = SPI.transfer(0);
-	unsigned char bit3 = SPI.transfer(0);
-	unsigned char bit4 = SPI.transfer(0);
-	
-	float f = (float)(bit1 - '0');
-}
-
 void setup() 
 {
   //Setup Motors
