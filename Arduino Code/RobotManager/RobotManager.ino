@@ -4,6 +4,15 @@
 #include "SPI.h"
 #include "PIDController.h"
 
+//A0 on MPU6050 set to 0
+//6050 7 bit address is 0x68
+//PWMGT address is 107; bit 6 controls sleep mode
+//z axis gryo is 71 and 72; low is 72, high is 71
+const int MPU_addr=0x68;  // I2C address of the MPU-6050
+double gyro = 0;
+long int t = millis();
+float testing = 100000;
+
 double FORWARD_DIST = 20;
 float LEFT_TURN  = -90;
 float RIGHT_TURN = 90;
@@ -48,9 +57,9 @@ VectorFloat gravity;    // [x, y, z]            gravity vector
 float euler[3];         // [psi, theta, phi]    Euler angle container
 float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
 
-int leftEncoderPos = 0;
-int rightEncoderPos = 0;
-float yaw = 0;
+volatile int leftEncoderPos = 0;
+volatile int rightEncoderPos = 0;
+double yaw = 0;
 
 int n = LOW, m = LOW;
 int leftEncoderALast = LOW;
@@ -84,6 +93,20 @@ float distPID[3] = {0.30, 0.0001, 0.0010};
 PIDController turningPID(0, turnPID);
 PIDController distancePID(0, distPID);
 
+//************************GYRO BLOCK*******************************//
+double pollGyro(){
+ Wire.beginTransmission(MPU_addr);
+ Wire.write(71);  // starting with register 0x3B (ACCEL_XOUT_H)
+ Wire.endTransmission(false);
+ Wire.requestFrom(MPU_addr,2,true);  // request a total of 2 registers
+ gyro = (~((Wire.read()<<8 | Wire.read())-1));
+ //gyro = (((~(Wire.read()-1))<<8|(~(Wire.read()-1))));//*(250/32768));
+ //Serial.println(gyro);
+ 
+ return(gyro);//*(250.0/32768.0)-.05
+ //Serial.println();
+} 
+//************END GYRO BLOCK************************************//
 
 /*
 	Reset Functions
@@ -96,9 +119,7 @@ void resetEncoders()
 
 void resetGyro()
 {
-  reference[0] = ypr[0];
-  reference[1] = ypr[1];
-  reference[2] = ypr[2];
+  yaw = 0;
 }
 /*
 	End Reset Functions
@@ -283,6 +304,19 @@ void idle(int ms)
 */
 bool mainControlLoop()
 {
+
+  //Update the yaw of the robot
+    yaw += float((micros()-t)*(pollGyro()-6)/testing)*(250.0/32768.0);
+    t = micros();
+    
+
+    gyro_error = yaw - targetYaw;
+    //gyro_error = fmod((gyro_error + 180), 360.0) - 180;
+    if(gyro_error > 180)
+    {
+      gyro_error = -(360 - gyro_error); 
+    }
+  
 	if((!driveComplete || !turnComplete))
 	{	
 		//If the robot is within a half inch of distance target, stop
@@ -308,13 +342,14 @@ bool mainControlLoop()
 		//Don't output if the output won't move the robot (save power)
 		X = filter(X);
 		Y = filter(Y);
-		
+
+    /*
 		if(is_nav_debug)
 		{
 			Serial.print(X);
 			Serial.print(" ");
 			Serial.println(Y);
-		}
+		}*/
 	
 		//if we are only off by 1.5 degrees, dont turn
 		if(abs(gyro_error) < 1.5)
@@ -363,6 +398,7 @@ void state_mgr(int instructions){
 		delay(100);
 		
 		resetEncoders();
+    resetGyro();
          
           switch(instructions){//program enters the state and does whatever action it was told to do; currently 8 states available
               case 0:                         //state 0 
@@ -382,7 +418,7 @@ void state_mgr(int instructions){
                 Serial.println("MCU 3");
                 break;
               case 4:
-				fullTurn();
+				        fullTurn();
                 break;
               case 5:
 				idle(1000);
@@ -394,7 +430,8 @@ void state_mgr(int instructions){
 			  idle(1000);
                 break;
               }
-           
+
+           t = micros();
 		   stateMachine = MAIN_STATE;
             Serial.println("STATE_MGR");
 }
@@ -436,6 +473,17 @@ void setup() //Initilizes some pins
     digitalWrite(moving, HIGH); //tells AI that the robot is not moving at this time
     attachInterrupt(1, doRightEncoder, CHANGE); //pin 3 interrupt
     attachInterrupt(5, doLeftEncoder, CHANGE);  
+
+    Wire.begin();
+    Wire.beginTransmission(MPU_addr);
+    Wire.write(0x6B);  // PWR_MGMT_1 register
+    Wire.write(1);     // set to zero (wakes up the MPU-6050)
+    Wire.endTransmission(true);
+    Wire.beginTransmission(MPU_addr);
+    Wire.write(0x1B);  // Gyro
+    Wire.write(0x18);     // set to zero (wakes up the MPU-6050)
+    Wire.endTransmission(true);
+    
     delay(5000);  //setup delay
 }
 //**************END SETUP BLOCK***************************************************
@@ -452,7 +500,9 @@ void loop() {
 		arcadeDrive(0,0);
 		//setup intializes automatically in the arduino ide
 		if(digitalRead(instruct)==HIGH )    //VERY IMPORTANT, loops while there are no instructions present; exits loop when instructions are asserted
-		{}
+		{
+			
+		}
 		else
 		{
 			digitalWrite(moving,LOW);  //VERY IMPORTANT; disallows instructions, must be activated very quickly after the detection of a LOW instruction line
@@ -472,16 +522,24 @@ void loop() {
 	}
     else
 	{
-      //note bot will iterate very quickly through states if it does not receive a proper state and enter the MCU function as currently coded
+		//note bot will iterate very quickly through states if it does not receive a proper state and enter the MCU function as currently coded
+		
+		
 
-      //********code could theoretically go here safely as well, although this is after the bot has moved
-      isMotionFinished = mainControlLoop();
-	  
-      if(isMotionFinished)
-	  {
-		  digitalWrite(moving, HIGH); //VERY IMPORTANT, allows further instructions
-		  stateMachine = IDLE_STATE;
-	  }
+    Serial.println(yaw);
+		
+		//Execute motion based on command, check for completion
+		isMotionFinished = mainControlLoop();
+
+    delayMicroseconds(2000);
+
+    //If motion is complete, go back to the idle state
+		if(isMotionFinished)
+		{
+      //Serial.println("Motion Complete!");
+			digitalWrite(moving, HIGH); //VERY IMPORTANT, allows further instructions
+			stateMachine = IDLE_STATE;
+		}
       
 	}
 }

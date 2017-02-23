@@ -3,7 +3,7 @@
 int E = 9, F = 10, G = 11, instruct = 12;
 int moving = 8;
 int indicator = 13;
-int stateTest[6] = {0,1,0,1,0,1};    //test array for various states, bot will iterate through these states 
+int stateTest[6] = {1,2,1,3,1,4};    //test array for various states, bot will iterate through these states 
 
 void setup() {
   
@@ -27,7 +27,7 @@ void loop() {
   //Serial.println("HELP ME");
   
   // put your main code here, to run repeatedly: 
-  for(int count = 0; count < 4; count++){           //sends first 4 ints in the stateTest array
+  for(int count = 0; count < sizeof(stateTest)/sizeof(int); count++){           //sends first 4 ints in the stateTest array
         while(digitalRead(moving) == LOW)           //VERY IMPORTANT, waits until the robot_mgr is no longer actively moving the robot to assert more instructions
                   {}//do whatever 
         
