@@ -3,46 +3,60 @@
 Trailblazer::Trailblazer()
 {
 	allowedRedundantSteps = 10;
-	initialMsBeforeIncreasingRedundantSteps = 5000;
-	additionalMsBeforeIncreasingRedundantSteps = 7500;
 	
 	closedSquaresOnPathSoFar = 0;
 	
+	initializeBoards();
+	
 	for(int r = 0; r < 7; ++r)
 	{
-		Vector<Square> row;
 		for(int c = 0; c < 7; ++c)
 		{
 			if(r == 6 && c == 0)
 			{
-				row.push_back(Square(r,c,true));
+				masterBoard[r][c] = Square(r,c,true);
+				startBoard[r][c] = Square(r,c,true);
+				
+				startBoard[r][c].setOccupied(true);
+				masterBoard[r][c].setOccupied(true);
+				
+				startBoard[r][c].setExplored(true);
+				masterBoard[r][c].setExplored(true);
+			}
+			else if(!(r==0 || r==6 || c==0 || c==6))//If the Square is not on the edges, set to explored at the start.
+			{
+				startBoard[r][c] = Square(r,c,false);
+				startBoard[r][c].setExplored(true);
 			}
 			else
 			{
-				row.push_back(Square(r,c,false));
+				masterBoard[r][c] = Square(r,c,false);
+				startBoard[r][c] = Square(r,c,false);
 			}
 		}
 	}
 }
 
-void Trailblazer::beginClock()
-{
-//	startTime = clock();
-}
 
-double Trailblazer::getElapsedTime()
+void Trailblazer::initializeBoards()
 {
-//	return ((clock() - startTime)/(double)CLOCKS_PER_SEC) * 1000;
-}
-
-void Trailblazer::initializeBoard()
-{
+	//initialize the 2 boards
+	masterBoard = new Square*[7];
+	for(int i = 0; i < 7; ++i)
+	{
+		masterBoard[i] = new Square[7];
+	}
 	
+	startBoard = new Square*[7];
+	for(int i = 0; i < 7; ++i)
+	{
+		startBoard[i] = new Square[7];
+	}
 }
 
-Vector<Square> Trailblazer::calculateForayPath(int row, int col)
+QueueList<int> Trailblazer::calculateForayPath(int row, int col)
 {
-	initializeBoard();
+	//initializeBoard();
 	
 	int occupiedSquareCoords[2] = {row, col};
 	
@@ -50,8 +64,8 @@ Vector<Square> Trailblazer::calculateForayPath(int row, int col)
 	{
 		for(int j = 0; j < 7; ++j)
 		{
-			board[i][j].setupSquare();
-			squares[i][j] = board[i][j];
+			//board[i][j].setupSquare();
+			//squares[i][j] = board[i][j];
 		}
 	}
 	
@@ -60,6 +74,16 @@ Vector<Square> Trailblazer::calculateForayPath(int row, int col)
 
 Trailblazer::~Trailblazer()
 {
+	for(int i = 0; i < 7; ++i)
+	{
+		delete [] masterBoard[i];
+	}
+	delete [] masterBoard;
 	
+	for(int i = 0; i < 7; ++i)
+	{
+		delete [] startBoard[i];
+	}
+	delete [] startBoard;
 }
 

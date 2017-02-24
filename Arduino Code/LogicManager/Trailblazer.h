@@ -2,7 +2,7 @@
 #define TRAILBLAZER_H
 
 #include "Square.h"
-#include <Vector.h>
+#include <QueueList.h>
 //#include <Vector>
 //#include <algorithm>
 //#include <ctime>
@@ -13,7 +13,7 @@ class Trailblazer
 	public:
 		Trailblazer();
 		virtual ~Trailblazer();
-		Vector<Square> calculateForayPath(int row, int col);
+		QueueList<int> calculateForayPath(int row, int col);
 		void setSquare(int key);
 		
 	protected:
@@ -21,35 +21,28 @@ class Trailblazer
 		
 	private:
 		//The board
-		Vector< Vector<Square> > board;
+		Square **masterBoard;
+		Square **startBoard;
 		
 		//Enumeration for Directions
 		enum directions {DIRECTION_NORTH = 0, DIRECTION_EAST = 1, DIRECTION_SOUTH = 2, DIRECTION_WEST = 3, DIRECTION_NONE = 10, ERROR_NOSUCHSQUARE = 11};
 		
 		//Redundancy Control
 		int allowedRedundantSteps;
-		int initialMsBeforeIncreasingRedundantSteps;
-		int additionalMsBeforeIncreasingRedundantSteps;
 		
 		//Timing
 		//clock_t startTime;
 		
 		//Square Operations
-		Vector< Vector<Square> > squares;
+	//	Vector< Vector<Square> > squares;
 		Square currentSquare;
 		int actionOfCurrentSquare;
 		Square nextSquareToBranchTo;
 		int closedSquaresOnPathSoFar;
 		bool triedAllPossiblePaths;
-		bool searchedForTooLong;
-		int msBeforeIncreasingAllowedClosedSquares;
-		
-		//Timing
-		void beginClock();
-		double getElapsedTime();
-		
+
 		//Board Functions
-		void initializeBoard();
+		void initializeBoards();
 		
 		//Square Functions
 		Square getMimickedSquare(int row, int col);

@@ -1,7 +1,7 @@
 #ifndef SQUARE_H
 #define SQUARE_H
 
-#include<Vector.h>
+#include<QueueList.h>
 
 class Square
 {
@@ -22,7 +22,9 @@ class Square
 		//Backtracking
 		void setupSquare();
 		bool getStatus();
-		int* getCoordinates();
+		void setStatus(bool b);
+		int getRow();
+		int getCol();
 		void addAllDirectionsToStack();
 		void addSquareToStack();
 		Square getNextAction();
@@ -36,8 +38,8 @@ class Square
 		bool isPartOfContiguousTunnelLayout();
 
     //Backtracking Functionality
-    //Vector<Square> squaresBranchedFromStack;
-    //Vector<Square> directionsToConsiderStack;    
+    QueueList<Square> squaresBranchedFromStack;
+    QueueList<Square> directionsToConsiderStack;    
 		
 	protected:
 		
@@ -52,11 +54,13 @@ class Square
 		int col;
 		
 		//Status bools
-		bool isExplored;
-		bool isMainTunnel;
-		bool isDeadEnd;
-		bool isObstacle;
-		bool isA7;
+		bool isExplored = false;
+		bool isMainTunnel = false;
+		bool isDeadEnd = false;
+		bool isObstacle = false;
+		bool isA7 = false;
+    bool _isEmpty = false;
+    bool isOccupied = false;
 		bool status, originalStatus;
 		
    
