@@ -1,9 +1,24 @@
+#include <QueueList.h>
 #include "SoonerColorduinoMaster.h"
+#include "Trailblazer.h"
+
 //Message System (OUT)
 int E = 9, F = 10, G = 11, instruct = 12;
 int moving = 8;
 int indicator = 13;
 int stateTest[6] = {1,2,1,3,1,4};    //test array for various states, bot will iterate through these states 
+
+//The current orientation of the robot. This variable must be preserved so we know where to go.
+/*
+NORTH: 0, EAST: 1, SOUTH: 2, WEST: 3
+*/
+int currentOrientation = 1;
+
+//AI for controlling where we go on the board.
+Trailblazer trailblazer;
+
+//Directions to follow in order to win
+QueueList<int> googleMaps;
 
 void setup() {
   
@@ -19,13 +34,58 @@ void setup() {
   digitalWrite(E, 0);            //initializes the state as state 0
   digitalWrite(F, 0);
   digitalWrite(G, 0);
+  
+  //Generate the first path
+  googleMaps = *(trailblazer.calculateForayPath(6,0,true,currentOrientation));
+  
+  Serial.begin(9600);
+	
   delay(5000);
 }
 
-void loop() {
-  Serial.begin(9600);
+void loop() 
+{
+	//The command to send to the robot
+	int command = 0;
+	
+	//Run code repeatedly based on what Google Maps tells us to do.
+	while(googleMaps.count() > 0)
+	{
+		while(digitalRead(moving) == LOW)           //VERY IMPORTANT, waits until the robot_mgr is no longer actively moving the robot to assert more instructions
+		{ // Do whatever here while we wait }
+		
+		command = googleMaps.pop();
+		
+		//TODO: Go through the checklist of things to do before actually moving.
+		
+		//TODO: Update Orientation if necessary.
+		
+		//Bitshifting is OK here for some reason
+		digitalWrite(E, command & 1); 
+		digitalWrite(F, command>>1 & 1);
+        digitalWrite(G, command>>2 & 1);
+		
+		//Wait for the lines to actually be asserted with digitalWrite
+		delay(10);
+		
+		//Tell RobotManager that the instructions are ready to execute
+		digitalWrite(instruct, 0);
+		
+		while(digitalRead(moving) == 1) {}   //VERY IMPORTANT, waits until RobotManager realizes that it has incoming data
+		
+		//Disable the instruct line
+		digitalWrite(instruct, 1);
+		
+		//Wait for the instruct line to switch to the correct value
+		delay(10);
+	}
+	
+	while(1){}  //terminate the program in an infinite loop, allows quick retesting of the robot_mgr
+}
+
+//**********OLD TEST CODE BLOCK (VERY IMPORTANT)****************//
   //Serial.println("HELP ME");
-  
+  /*
   // put your main code here, to run repeatedly: 
   for(int count = 0; count < sizeof(stateTest)/sizeof(int); count++){           //sends first 4 ints in the stateTest array
         while(digitalRead(moving) == LOW)           //VERY IMPORTANT, waits until the robot_mgr is no longer actively moving the robot to assert more instructions
@@ -41,7 +101,4 @@ void loop() {
         while(digitalRead(moving) == 1) {}   //VERY IMPORTANT, waits until robot_mgr realizes that it has incoming data
         digitalWrite(instruct,1);            //disables the instruction line
         delay(10);                           //this delay probably not that important, but allows time for the instruct line to become the proper value before continuing
-  }  
-  
-  while(1){}  //terminate the program in an infinite loop, allows quick retesting of the robot_mgr
-}
+  }  */

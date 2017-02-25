@@ -398,42 +398,38 @@ void state_mgr(int instructions){
 		delay(100);
 		
 		resetEncoders();
-    resetGyro();
+		resetGyro();
          
           switch(instructions){//program enters the state and does whatever action it was told to do; currently 8 states available
-              case 0:                         //state 0 
-                  idle(1000);                   //these are of course practice instructions
-                  Serial.println("MCU 0");
+              case 0:                         
+                idle(1000);                 //Sit still for a second
                 break;
-              case 1:                         //state 1, etc
-                forwardOne();
-                Serial.println("MCU 1");
+              case 1:                         
+                forwardOne();				//Drive forward 1 square
                 break;
               case 2:
-                leftTurn();
-                Serial.println("MCU 2");
+                leftTurn();					//Turn 90 degrees left
                 break;
               case 3:
-                rightTurn();
-                Serial.println("MCU 3");
+                rightTurn();				//Turn 90 degrees right
                 break;
               case 4:
-				        fullTurn();
+				fullTurn();					//Do a full 180 degree turn
                 break;
-              case 5:
-				idle(1000);
+              case 5:	
+				idle(1000);					//Cache sequence
                 break;
               case 6:
-			  idle(1000);
+				idle(500);                 //Sit still for half a second
                 break;
               case 7:
-			  idle(1000);
+				idle(10000);                 //STOP (currently placeholder is idle for 10 seconds)
                 break;
               }
 
            t = micros();
 		   stateMachine = MAIN_STATE;
-            Serial.println("STATE_MGR");
+           //Serial.println("STATE_MGR");
 }
 //***********************************END STATE BLOCK******************************//
 

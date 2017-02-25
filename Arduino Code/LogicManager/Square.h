@@ -1,7 +1,7 @@
 #ifndef SQUARE_H
 #define SQUARE_H
 
-#include<QueueList.h>
+#include <StackList.h>
 
 class Square
 {
@@ -19,6 +19,14 @@ class Square
 		void setEmpty(bool b);
 		void setOccupied(bool b);
 		
+		//Getters
+		bool getExplored();
+		bool getMainTunnel();
+		bool getDeadEnd();
+		bool getObstacle();
+		bool getEmpty();
+		bool getOccupied();
+		
 		//Backtracking
 		void setupSquare();
 		bool getStatus();
@@ -26,9 +34,10 @@ class Square
 		int getRow();
 		int getCol();
 		void addAllDirectionsToStack();
-		void addSquareToStack();
-		Square getNextAction();
-		void branchTo();
+		void addSquareToStack(Square &s);
+		int getNextAction();
+		Square getPreviousSquareOnBranch();
+		void branchTo(Square s);
 		
 		//Inference
 		void setAdjacentToMainTunnelEndpoint();
@@ -37,9 +46,9 @@ class Square
 		void setPartOfContiguousTunnelLayout();
 		bool isPartOfContiguousTunnelLayout();
 
-    //Backtracking Functionality
-    QueueList<Square> squaresBranchedFromStack;
-    QueueList<Square> directionsToConsiderStack;    
+		//Backtracking Functionality
+		StackList<Square> squaresBranchedFromStack;
+		StackList<int> directionsToConsiderStack;    
 		
 	protected:
 		
@@ -59,8 +68,8 @@ class Square
 		bool isDeadEnd = false;
 		bool isObstacle = false;
 		bool isA7 = false;
-    bool _isEmpty = false;
-    bool isOccupied = false;
+		bool _isEmpty = false;
+		bool isOccupied = false;
 		bool status, originalStatus;
 		
    
