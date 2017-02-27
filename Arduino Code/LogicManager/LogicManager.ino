@@ -20,7 +20,8 @@ Trailblazer trailblazer;
 //Directions to follow in order to win
 QueueList<int> googleMaps;
 
-void setup() {
+void setup() 
+{
   
  //Comms pins
   pinMode(E, OUTPUT);//bit 0        //output pins for the states
@@ -35,10 +36,13 @@ void setup() {
   digitalWrite(F, 0);
   digitalWrite(G, 0);
   
-  //Generate the first path
-  googleMaps = *(trailblazer.calculateForayPath(6,0,true,currentOrientation));
-  
   Serial.begin(9600);
+  Serial.println("Calculating Route...");
+  
+  //Generate the first path
+  //googleMaps = *(trailblazer.calculateForayPath(6,0,true,currentOrientation));
+  
+  Serial.println("Route Calculated");
 	
   delay(5000);
 }
@@ -48,11 +52,43 @@ void loop()
 	//The command to send to the robot
 	int command = 0;
 	
+	//TEST CODE FOR DIRECTIONS
+	int len = googleMaps.count();
+	for(int i = 0; i < len; ++i)
+	{
+		int direction = googleMaps.pop();
+		
+		if(direction = 0)
+		{
+			Serial.println("Idle");
+		}
+		else if(direction == 1)
+		{
+			Serial.println("Forward");
+		}
+		else if(direction == 2)
+		{
+			Serial.println("Left");
+		}
+		else if(direction == 3)
+		{
+			Serial.println("Right");
+		}
+		else if(direction == 4)
+		{
+			Serial.println("U-Turn");
+		}
+		
+		googleMaps.push(direction);
+	}
+	
 	//Run code repeatedly based on what Google Maps tells us to do.
 	while(googleMaps.count() > 0)
 	{
 		while(digitalRead(moving) == LOW)           //VERY IMPORTANT, waits until the robot_mgr is no longer actively moving the robot to assert more instructions
-		{ // Do whatever here while we wait }
+		{ 
+			// Do whatever here while we wait 
+		}
 		
 		command = googleMaps.pop();
 		
