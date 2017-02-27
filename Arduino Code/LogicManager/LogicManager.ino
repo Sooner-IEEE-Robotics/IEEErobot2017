@@ -19,6 +19,24 @@ int MIN_COL = 0, MAX_COL = 6, MIN_ROW = 0, MAX_ROW = 5
 //Directions to follow in order to win
 QueueList<byte> googleMaps;
 
+//Board, as a 1D array
+int board[49];
+
+void initBoard()
+{
+	for(int i = 0; i < 49; ++i)
+	{
+		if((i/7) == 6 && (i%7) == 0)
+		{
+			board[i] = 5;
+		}
+		else
+		{
+			board[i] = 0;
+		}
+	}
+}
+
 void getPath(int top, int bottom, int left, int right)
 {	
 	int topEdge = top, botEdge = bottom, leftEdge = left, rightEdge = right;
@@ -146,9 +164,18 @@ void printPath()
 	Serial.println("EOF");
 }
 
+void updateBounds()
+{
+	int t = MIN_ROW, b = MAX_ROW, l = MIN_COL, r = MAX_COL;
+	
+	for(int i = 0; i < 49; ++i)
+	{
+		
+	}
+}
+
 void setup() 
 {
-	
 	//Comms pins
 	pinMode(E, OUTPUT);//bit 0        //output pins for the states
 	pinMode(F, OUTPUT);//bit 1
