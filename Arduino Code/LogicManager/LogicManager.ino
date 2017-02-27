@@ -13,14 +13,17 @@ NORTH: 0, EAST: 1, SOUTH: 2, WEST: 3
 */
 int currentOrientation = 1;
 
+//Edge Management variables used to constrain new spirals
+int MIN_COL = 0, MAX_COL = 6, MIN_ROW = 0, MAX_ROW = 5
+
 //Directions to follow in order to win
 QueueList<byte> googleMaps;
 
-void getDefaultPath()
+void getPath(int top, int bottom, int left, int right)
 {	
+	int topEdge = top, botEdge = bottom, leftEdge = left, rightEdge = right;
+
 	int r = 6, c = 0, directionOfTravel = 1;
-	
-	int topEdge = 0, botEdge = 5, leftEdge = 0, rightEdge = 6;
 	
 	for(int i = 0; i < 49; ++i)
 	{
@@ -101,40 +104,8 @@ void getDefaultPath()
 	googleMaps.push(7);
 }
 
-void setup() 
+void printPath()
 {
-  
- //Comms pins
-  pinMode(E, OUTPUT);//bit 0        //output pins for the states
-  pinMode(F, OUTPUT);//bit 1
-  pinMode(G, OUTPUT);//bit 2
-  pinMode(moving, INPUT);  //low when moving, high when not moving
-  pinMode(instruct, OUTPUT);  //low when info is valid, high when info is not valid
-  pinMode(indicator, OUTPUT); //indicator led
-  digitalWrite(instruct, HIGH);  //tells the other board that the info is not ready
-  digitalWrite(indicator, LOW);  //pin 13 LED indicator
-  digitalWrite(E, 0);            //initializes the state as state 0
-  digitalWrite(F, 0);
-  digitalWrite(G, 0);
-  
-  Serial.begin(9600);
-  Serial.println("Calculating Route...");
-  
-  //Generate the first path
- //googleMaps = *spiral.getDefaultPath();
- getDefaultPath();
-  
-  Serial.println("Route Calculated");
-  Serial.println(googleMaps.count());
-	
-  delay(5000);
-}
-
-void loop() 
-{
-	//The command to send to the robot
-	int command = 0;
-	
 	Serial.println("Path:");
 	
 	//TEST CODE FOR DIRECTIONS
@@ -169,10 +140,45 @@ void loop()
 			Serial.println(direction);
 		}
 		
-		//googleMaps.push(direction);
+		googleMaps.push(direction);
 	}
 	
 	Serial.println("EOF");
+}
+
+void setup() 
+{
+	
+	//Comms pins
+	pinMode(E, OUTPUT);//bit 0        //output pins for the states
+	pinMode(F, OUTPUT);//bit 1
+	pinMode(G, OUTPUT);//bit 2
+	pinMode(moving, INPUT);  //low when moving, high when not moving
+	pinMode(instruct, OUTPUT);  //low when info is valid, high when info is not valid
+	pinMode(indicator, OUTPUT); //indicator led
+	digitalWrite(instruct, HIGH);  //tells the other board that the info is not ready
+	digitalWrite(indicator, LOW);  //pin 13 LED indicator
+	digitalWrite(E, 0);            //initializes the state as state 0
+	digitalWrite(F, 0);
+	digitalWrite(G, 0);
+	
+	Serial.begin(9600);
+	Serial.println("Calculating Route...");
+	
+	//Generate the first path
+ 	//googleMaps = *spiral.getDefaultPath();
+	getPath(MIN_ROW, MAX_ROW, MIN_COL, MAX_COL);
+	
+	Serial.println("Route Calculated");
+	Serial.println(googleMaps.count());
+		
+	delay(5000);
+}
+
+void loop() 
+{
+	//The command to send to the robot
+	int command = 0;
 	
 	//Run code repeatedly based on what Google Maps tells us to do.
 	while(googleMaps.count() > 0)
