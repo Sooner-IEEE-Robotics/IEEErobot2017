@@ -1,4 +1,5 @@
 #include <QueueList.h>
+#include <StackList.h>
 #include "SoonerColorduinoMaster.h"
 
 //Message System (OUT)
@@ -7,11 +8,23 @@ int moving = 8;
 int indicator = 13;
 int stateTest[6] = {1,2,1,3,1,4};    //test array for various states, bot will iterate through these states 
 
+//Metal Detector
+int metalDetectorPin = 4;
+
+//IR Sensor (Obstacle Detection)
+int sharpSensorPin = A0; //This is an analog sensor
+
+//Colorduino
+SoonerColorduinoMaster scm;
+
 //The current orientation of the robot. This variable must be preserved so we know where to go.
 /*
 NORTH: 0, EAST: 1, SOUTH: 2, WEST: 3
 */
 int currentOrientation = 1;
+
+//Position of the robot
+int CURRENT_ROW = 6, CURRENT_COL = 0;
 
 //Edge Management variables used to constrain new spirals
 int MIN_COL = 0, MAX_COL = 6, MIN_ROW = 0, MAX_ROW = 5
@@ -19,8 +32,20 @@ int MIN_COL = 0, MAX_COL = 6, MIN_ROW = 0, MAX_ROW = 5
 //Directions to follow in order to win
 QueueList<byte> googleMaps;
 
+//Obstacle Avoidance Stack of endpoints
+StackList<int> endPoints;
+
 //Board, as a 1D array
+//(i/7) = Row, (i%7) = Column
 int board[49];
+/*
+0 = Unexplored
+1 = Main Tunnel
+2 = Dead End Tunnel
+3 = Empty
+4 = Start
+5 = Obstacle
+*/
 
 void initBoard()
 {
@@ -28,7 +53,8 @@ void initBoard()
 	{
 		if((i/7) == 6 && (i%7) == 0)
 		{
-			board[i] = 5;
+			board[i] = 4; //A7 is the start
+			scm.setPixelYellow(0, 6); //Update the Colorduino accordingly
 		}
 		else
 		{
@@ -37,11 +63,13 @@ void initBoard()
 	}
 }
 
-void getPath(int top, int bottom, int left, int right)
+//*****************Path Generation*********************//
+
+void getPath(int top, int bottom, int left, int right, int direction)
 {	
 	int topEdge = top, botEdge = bottom, leftEdge = left, rightEdge = right;
 
-	int r = 6, c = 0, directionOfTravel = 1;
+	int r = 6, c = 0, directionOfTravel = direction;
 	
 	for(int i = 0; i < 49; ++i)
 	{
@@ -122,6 +150,38 @@ void getPath(int top, int bottom, int left, int right)
 	googleMaps.push(7);
 }
 
+void avoidObstacle(int obstacle_location)
+{
+	updateBounds();
+	
+	int obstacle_row = obstacle_location/7;
+	int obstacle_col = obstacle_location%7;
+	
+	int targetRow, targetCol;
+	
+	if(currentOrientation == 0)
+	{
+		targetRow = obstacle_row - 1;
+	}
+	else if(currentOrientation == 2)
+	{
+		targetRow = obstacle_row + 1;
+	}
+	
+	if(currentOrientation == 1)
+	{
+		targetCol = obstacle_col + 1;
+	}
+	else if(currentOrientation == 3)
+	{
+		targetCol = obstacle_col - 1;
+	}
+	
+	int targetLocation = (targetRow*7) + targetCol;
+	
+	endPoints.push(targetLocation);
+}
+
 void printPath()
 {
 	Serial.println("Path:");
@@ -163,16 +223,46 @@ void printPath()
 	
 	Serial.println("EOF");
 }
+//**********************END PATH GENERATION*******************//
 
+//*******************EDGE MANAGEMENT********************//
 void updateBounds()
 {
-	int t = MIN_ROW, b = MAX_ROW, l = MIN_COL, r = MAX_COL;
+	int t = 5, b = 0; //Rows
+	int l = 6, r = 0; //Cols
 	
 	for(int i = 0; i < 49; ++i)
 	{
-		
+		if(board[i] == 0)
+		{
+			//Row Boundaries
+			if((i/7) > b)
+			{
+				b = i/7;
+			}
+			if((i/7) < t)
+			{
+				t = i/7;
+			}
+			
+			//Column Boundaries
+			if((i%7) > r)
+			{
+				r = i%7;
+			}
+			if((i%7) < l)
+			{
+				l = i%7;
+			}
+		}
 	}
+	
+	MIN_ROW = t;
+	MAX_ROW = b;
+	MIN_COL = l;
+	MAX_COL = r;
 }
+//***********************END EDGE MANAGEMENT********************//
 
 void setup() 
 {
@@ -189,12 +279,18 @@ void setup()
 	digitalWrite(F, 0);
 	digitalWrite(G, 0);
 	
+	//Metal Detection
+	pinMode(metalDetectorPin, INPUT);
+	
+	//Obstacle Detection
+	pinMode(sharpSensorPin, INPUT);
+	
 	Serial.begin(9600);
 	Serial.println("Calculating Route...");
 	
 	//Generate the first path
  	//googleMaps = *spiral.getDefaultPath();
-	getPath(MIN_ROW, MAX_ROW, MIN_COL, MAX_COL);
+	getPath(MIN_ROW, MAX_ROW, MIN_COL, MAX_COL, currentOrientation);
 	
 	Serial.println("Route Calculated");
 	Serial.println(googleMaps.count());
@@ -205,7 +301,9 @@ void setup()
 void loop() 
 {
 	//The command to send to the robot
-	int command = 0;
+	int command = 0, lastCommand = 0;
+	bool commandApproved = true;
+	int obstacleLocation;
 	
 	//Run code repeatedly based on what Google Maps tells us to do.
 	while(googleMaps.count() > 0)
@@ -215,11 +313,104 @@ void loop()
 			// Do whatever here while we wait 
 		}
 		
-		command = googleMaps.pop();
+		//Default to being allowed to move forward with the commands
+		commandApproved = true;
 		
-		//TODO: Go through the checklist of things to do before actually moving.
+		//Update Orientation and position based on the prior command
+		if(lastCommand == 1)//We just drove straight
+		{
+			if(currentOrientation == 0) //North
+			{
+				CURRENT_ROW--;
+			}
+			else if(currentOrientation == 1) //East
+			{
+				CURRENT_COL++;
+			}
+			else if(currentOrientation == 2) //South
+			{
+				CURRENT_ROW++;
+			}
+			else //West
+			{
+				CURRENT_COL--;
+			}
+		}
+		else if(lastCommand == 2)//We just turned left
+		{
+			currentOrientation--;
+			if(currentOrientation < 0)
+			{
+				currentOrientation = 3;
+			}
+		}
+		else if(lastCommand == 3)//We just turned right
+		{
+			currentOrientation++;
+			if(currentOrientation > 3)
+			{
+				currentOrientation = 0;
+			}
+		}
+		else if(lastCommand == 4)//We just turned around
+		{
+			currentOrientation += 2; //Turn full circle
+			if(currentOrientation > 3)//Orientation used to be 2 or 3, so now is 4 or 5.
+			{
+				currentOrientation -= 4; //wrap around compass rose accordingly
+			}
+		}
+			
+		//*****Go through the checklist of things to do before actually moving.****//
+		if(digitalRead(metalDetectorPin) == HIGH) //If metal is found, update map and display to colorduino
+		{
+			int i = (CURRENT_ROW*7) + CURRENT_COL;
+			board[i] = 1;
+			
+			//Update the colorduino to show the main tunnel
+			scm.setPixelRed(CURRENT_COL, CURRENT_ROW);
+		}
+		if(analogRead(sharpSensorPin) < OBSTACLE_THRESHOLD) //If there is an obstacle in front of us
+		{
+			int i;
+			if(currentOrientation == 0)
+			{
+				i = ((CURRENT_ROW-1)*7) + CURRENT_COL;
+			}
+			else if(currentOrientation == 1)
+			{
+				i = (CURRENT_ROW*7) + CURRENT_COL + 1;
+			}
+			else if(currentOrientation == 2)
+			{
+				i = ((CURRENT_ROW+1)*7) + CURRENT_COL;
+			}
+			else
+			{
+				i = (CURRENT_ROW*7) + CURRENT_COL - 1;
+			}
+			
+			board[i] = 5;
+			obstacleLocation = i;
+			
+			//We need to generate a new set of commands.
+			commandApproved = false;
+		}
 		
-		//TODO: Update Orientation if necessary.
+		if(commandApproved)
+		{
+			command = googleMaps.pop(); //Gets the next command from the queue.
+		}
+		else
+		{
+			while(!googleMaps.isEmpty())
+			{
+				googleMaps.pop();
+			}
+			
+			avoidObstacle(obstacleLocation);
+		}
+		
 		
 		//Bitshifting is OK here for some reason
 		digitalWrite(E, command & 1); 
@@ -239,6 +430,9 @@ void loop()
 		
 		//Wait for the instruct line to switch to the correct value
 		delay(10);
+		
+		//Update lastCommand for future calculations
+		lastCommand = command;
 	}
 	
 	while(1){}  //terminate the program in an infinite loop, allows quick retesting of the robot_mgr

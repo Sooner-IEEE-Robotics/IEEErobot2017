@@ -93,6 +93,9 @@ float distPID[3] = {0.30, 0.0001, 0.0010};
 PIDController turningPID(0, turnPID);
 PIDController distancePID(0, distPID);
 
+distancePID.SetOutputRange(0.4, -0.4);
+turningPID.SetOutputRange(0.3, -0.3);
+
 //************************GYRO BLOCK*******************************//
 double pollGyro(){
  Wire.beginTransmission(MPU_addr);
