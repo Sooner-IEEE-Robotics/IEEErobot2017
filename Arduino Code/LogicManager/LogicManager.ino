@@ -1,6 +1,5 @@
 #include <QueueList.h>
 #include "SoonerColorduinoMaster.h"
-#include "Trailblazer.h"
 
 //Message System (OUT)
 int E = 9, F = 10, G = 11, instruct = 12;
@@ -14,11 +13,93 @@ NORTH: 0, EAST: 1, SOUTH: 2, WEST: 3
 */
 int currentOrientation = 1;
 
-//AI for controlling where we go on the board.
-Trailblazer trailblazer;
-
 //Directions to follow in order to win
-QueueList<int> googleMaps;
+QueueList<byte> googleMaps;
+
+void getDefaultPath()
+{	
+	int r = 6, c = 0, directionOfTravel = 1;
+	
+	int topEdge = 0, botEdge = 5, leftEdge = 0, rightEdge = 6;
+	
+	for(int i = 0; i < 49; ++i)
+	{
+		
+		if(r == topEdge && directionOfTravel == 0) //If we are going north at the top of the board.
+		{
+			googleMaps.push(2); //turn left
+			googleMaps.push(1); //drive straight
+			directionOfTravel = 3;
+			
+			++topEdge;
+			
+			--c;
+		}
+		else if(r == botEdge && directionOfTravel == 2) //If we are going south at the bottom of the board
+		{
+			googleMaps.push(2); //turn left
+			googleMaps.push(1); //drive straight
+			directionOfTravel = 1;
+			
+			--botEdge;
+			
+			++c;
+		}
+		else if(c == leftEdge && directionOfTravel == 3)//If we are going West at the left of the board
+		{
+			googleMaps.push(2); //turn left
+			googleMaps.push(1); //drive straight
+			directionOfTravel = 2;
+			
+			++leftEdge;
+			
+			++r;
+		}
+		else if(c == rightEdge && directionOfTravel == 1)//If we are going east at the right of the board
+		{
+			googleMaps.push(2); //turn left
+			googleMaps.push(1); //drive straight
+			directionOfTravel = 0;
+			
+			--rightEdge;
+			
+			--r;
+		}
+		else //Normal conditions, keep going the same direction
+		{
+			//drive straight
+			googleMaps.push(1);
+			
+			if(directionOfTravel == 0)
+			{
+				--r;
+			}
+			else if(directionOfTravel == 1)
+			{
+				++c;
+			}
+			else if(directionOfTravel == 2)
+			{
+				++r;
+			}
+			else
+			{
+				--c;
+			}
+		}
+	}
+	
+	//Go back to start
+	googleMaps.push(3); //Turn right (toward south)
+	googleMaps.push(1);
+	googleMaps.push(1);
+	googleMaps.push(1);
+	googleMaps.push(3); //Turn Right (toward west)
+	googleMaps.push(1);
+	googleMaps.push(1);
+	googleMaps.push(1);
+	googleMaps.push(7);
+}
 
 void setup() 
 {
@@ -40,9 +121,11 @@ void setup()
   Serial.println("Calculating Route...");
   
   //Generate the first path
-  //googleMaps = *(trailblazer.calculateForayPath(6,0,true,currentOrientation));
+ //googleMaps = *spiral.getDefaultPath();
+ getDefaultPath();
   
   Serial.println("Route Calculated");
+  Serial.println(googleMaps.count());
 	
   delay(5000);
 }
@@ -52,13 +135,16 @@ void loop()
 	//The command to send to the robot
 	int command = 0;
 	
+	Serial.println("Path:");
+	
 	//TEST CODE FOR DIRECTIONS
 	int len = googleMaps.count();
 	for(int i = 0; i < len; ++i)
 	{
-		int direction = googleMaps.pop();
+		byte direction = googleMaps.peek();
+		googleMaps.pop();
 		
-		if(direction = 0)
+		if(direction == 0)
 		{
 			Serial.println("Idle");
 		}
@@ -78,9 +164,15 @@ void loop()
 		{
 			Serial.println("U-Turn");
 		}
+		else
+		{
+			Serial.println(direction);
+		}
 		
-		googleMaps.push(direction);
+		//googleMaps.push(direction);
 	}
+	
+	Serial.println("EOF");
 	
 	//Run code repeatedly based on what Google Maps tells us to do.
 	while(googleMaps.count() > 0)
