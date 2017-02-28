@@ -23,11 +23,14 @@ NORTH: 0, EAST: 1, SOUTH: 2, WEST: 3
 */
 int currentOrientation = 1;
 
+//Are we trying to avoid obstacles right now?
+bool activelyAvoidingObstacles = false;
+
 //Position of the robot
 int CURRENT_ROW = 6, CURRENT_COL = 0;
 
 //Edge Management variables used to constrain new spirals
-int MIN_COL = 0, MAX_COL = 6, MIN_ROW = 0, MAX_ROW = 5
+int MIN_COL = 0, MAX_COL = 6, MIN_ROW = 0, MAX_ROW = 5;
 
 //Directions to follow in order to win
 QueueList<byte> googleMaps;
@@ -69,9 +72,11 @@ void getPath(int top, int bottom, int left, int right, int direction)
 {	
 	int topEdge = top, botEdge = bottom, leftEdge = left, rightEdge = right;
 
-	int r = 6, c = 0, directionOfTravel = direction;
+	int r = CURRENT_ROW, c = CURRENT_COL, directionOfTravel = direction;
 	
-	for(int i = 0; i < 49; ++i)
+	int boardSize = (MAX_COL - MIN_COL + 1) * (MAX_ROW - MIN_ROW + 2);
+	
+	for(int i = 0; i < boardSize; ++i)
 	{
 		
 		if(r == topEdge && directionOfTravel == 0) //If we are going north at the top of the board.
@@ -154,6 +159,8 @@ void avoidObstacle(int obstacle_location)
 {
 	updateBounds();
 	
+	activelyAvoidingObstacles = true;
+	
 	int obstacle_row = obstacle_location/7;
 	int obstacle_col = obstacle_location%7;
 	
@@ -177,9 +184,102 @@ void avoidObstacle(int obstacle_location)
 		targetCol = obstacle_col - 1;
 	}
 	
-	int targetLocation = (targetRow*7) + targetCol;
+	bool borderSecurity = true;
 	
+	if(targetRow > MAX_ROW)
+	{
+		targetRow = MAX_ROW;
+		targetCol++;
+		borderSecurity = false;
+	}
+	else if(targetRow < MIN_ROW)
+	{
+		targetRow = MIN_ROW;
+		targetCol--;
+		borderSecurity = false;
+	}
+	
+	if(targetCol > MAX_COL)
+	{
+		targetCol = MAX_COL;
+		targetRow--;
+		borderSecurity = false;
+	}
+	else if(targetCol < MIN_COL)
+	{
+		targetCol = MIN_COL;
+		targetRow++;
+		borderSecurity = false;
+	}
+	
+	int targetLocation = (targetRow*7) + targetCol;
+
 	endPoints.push(targetLocation);
+	
+	googleMaps.push(2); //Left
+	googleMaps.push(1); //Forward
+	googleMaps.push(3); //Right
+	
+	if(borderSecurity) //Normal Case
+	{
+		googleMaps.push(1);
+		googleMaps.push(1);
+		googleMaps.push(3);
+		googleMaps.push(1);
+	}
+	else //We are on a corner or edge. Only go forward 1 and we are at an O
+	{
+		googleMaps.push(1);
+	}
+	
+}
+
+void findTheOs()
+{
+	int currentLocation = (CURRENT_ROW*7) + CURRENT_COL;
+	
+	int nextO = endPoints.pop(), lastO = -1;
+	
+	int lastRow = CURRENT_ROW;
+	int lastCol = CURRENT_COL;
+	
+	int rDiff, cDiff;
+	
+	while(!endPoints.isEmpty())
+	{
+		
+		if(nextO == lastO || nextO = currentLocation)
+		{
+			nextO = endPoints.pop();
+		}
+		
+		int r = nextO/7;
+		int c = nextO%7;
+		
+		rDiff = lastRow - r;
+		cDiff = lastCol - c;
+		
+		
+		for(int i = 0; i < abs(cDiff); ++i)
+		{
+			googleMaps.push(1);
+		}
+		
+		if(abs(rDiff) > 0)
+		{
+			googleMaps.push(3);
+			
+			for(int i = 0; i < abs(rDiff); ++i)
+			{
+				googleMaps.push(1);
+			}
+		}
+		
+		
+		lastO = nextO;
+		lastRow = nextO/7;
+		lastCol = nextO%7;
+	}
 }
 
 void printPath()
@@ -400,6 +500,19 @@ void loop()
 		if(commandApproved)
 		{
 			command = googleMaps.pop(); //Gets the next command from the queue.
+			
+			//If the obstacle has been avoided, but we have not explored behind the obstacles enough,
+			//generate more waypoints so the program does not end prematurely.
+			if(activelyAvoidingObstacles && googleMaps.isEmpty() && !endPoints.isEmpty())
+			{
+				findTheOs();
+			}
+			//If the obstacles have fully been avoided, recalculate the spiral path and continue with the program
+			else if(activelyAvoidingObstacles && googleMaps.isEmpty() && endPoints.isEmpty())
+			{
+				activelyAvoidingObstacles = false;
+				getPath(MIN_ROW, MAX_ROW, MIN_COL, MAX_COL, currentOrientation);
+			}
 		}
 		else
 		{
@@ -409,6 +522,8 @@ void loop()
 			}
 			
 			avoidObstacle(obstacleLocation);
+			
+			command = googleMaps.pop();
 		}
 		
 		
