@@ -2,6 +2,9 @@
 #include <StackList.h>
 #include "SoonerColorduinoMaster.h"
 
+//Threshold to determine if there is an obstacle or not
+#define OBSTACLE_THRESHOLD 100
+
 //Message System (OUT)
 int E = 9, F = 10, G = 11, instruct = 12;
 int moving = 8;
@@ -248,7 +251,7 @@ void findTheOs()
 	while(!endPoints.isEmpty())
 	{
 		
-		if(nextO == lastO || nextO = currentLocation)
+		if(nextO == lastO || nextO == currentLocation)
 		{
 			nextO = endPoints.pop();
 		}
