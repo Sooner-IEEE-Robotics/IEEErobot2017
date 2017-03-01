@@ -60,7 +60,7 @@ void initBoard()
 		if((i/7) == 6 && (i%7) == 0)
 		{
 			board[i] = 4; //A7 is the start
-			scm.setPixelYellow(0, 6); //Update the Colorduino accordingly
+			//scm.setPixelYellow(0, 6); //Update the Colorduino accordingly
 		}
 		else
 		{
@@ -391,6 +391,8 @@ void setup()
 	Serial.begin(9600);
 	Serial.println("Calculating Route...");
 	
+	initBoard();
+	
 	//Generate the first path
  	//googleMaps = *spiral.getDefaultPath();
 	getPath(MIN_ROW, MAX_ROW, MIN_COL, MAX_COL, currentOrientation);
@@ -398,7 +400,7 @@ void setup()
 	Serial.println("Route Calculated");
 	Serial.println(googleMaps.count());
 		
-	delay(5000);
+	delay(10000);
 }
 
 void loop() 
@@ -464,7 +466,9 @@ void loop()
 			}
 		}
 			
+			
 		//*****Go through the checklist of things to do before actually moving.****//
+		/*
 		if(digitalRead(metalDetectorPin) == HIGH) //If metal is found, update map and display to colorduino
 		{
 			int i = (CURRENT_ROW*7) + CURRENT_COL;
@@ -499,7 +503,7 @@ void loop()
 			//We need to generate a new set of commands.
 			commandApproved = false;
 		}
-		
+		*/
 		if(commandApproved)
 		{
 			command = googleMaps.pop(); //Gets the next command from the queue.

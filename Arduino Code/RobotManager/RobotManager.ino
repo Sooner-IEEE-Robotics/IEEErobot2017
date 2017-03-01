@@ -13,10 +13,14 @@ double gyro = 0;
 long int t = millis();
 float testing = 100000;
 
-double FORWARD_DIST = 20;
-float LEFT_TURN  = -90;
-float RIGHT_TURN = 90;
-float FULL_TURN = 180;
+float gyroConvert = .978 * float(250)/(float(30500) * float(100000.0));
+
+double FORWARD_DIST = 9;
+float LEFT_TURN  = -83;
+float RIGHT_TURN = 83;
+float FULL_TURN = 166;
+
+double STOP_SPEED_THRESHOLD = 0.15;
 
 enum State {
 	MAIN_STATE, IDLE_STATE
@@ -39,23 +43,6 @@ float startYaw = 0;
 //The gyro device itself
 MPU6050 mpu;
 float reference[3]; //[yaw, pitch, roll]
-
-// MPU control/status vars
-bool dmpReady = false;  // set true if DMP init was successful
-uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
-uint8_t devStatus;      // return status after each device operation (0 = success, !0 = error)
-uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
-uint16_t fifoCount;     // count of all bytes currently in FIFO
-uint8_t fifoBuffer[64]; // FIFO storage buffer
-
-// orientation/motion vars
-Quaternion q;           // [w, x, y, z]         quaternion container
-VectorInt16 aa;         // [x, y, z]            accel sensor measurements
-VectorInt16 aaReal;     // [x, y, z]            gravity-free accel sensor measurements
-VectorInt16 aaWorld;    // [x, y, z]            world-frame accel sensor measurements
-VectorFloat gravity;    // [x, y, z]            gravity vector
-float euler[3];         // [psi, theta, phi]    Euler angle container
-float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
 
 volatile int leftEncoderPos = 0;
 volatile int rightEncoderPos = 0;
@@ -87,14 +74,11 @@ float targetYaw = 0;
 double distance_target = 0;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
-float turnPID[3] = {0.15, 0.0001, 0.0002};
-float distPID[3] = {0.30, 0.0001, 0.0010}; 
+float turnPID[3] = {0.20, 0.0005, 0.0009};
+float distPID[3] = {0.35, 0.0005, 0.000}; 
 
 PIDController turningPID(0, turnPID);
 PIDController distancePID(0, distPID);
-
-distancePID.SetOutputRange(0.4, -0.4);
-turningPID.SetOutputRange(0.3, -0.3);
 
 //************************GYRO BLOCK*******************************//
 double pollGyro(){
@@ -309,9 +293,13 @@ bool mainControlLoop()
 {
 
   //Update the yaw of the robot
-    yaw += float((micros()-t)*(pollGyro()-6)/testing)*(250.0/32768.0);
+    //yaw += float((micros()-t)*(pollGyro()-6)/testing)*(250.0/32768.0);
+	yaw += float(((micros()-t)*(pollGyro()-6)))*gyroConvert;
     t = micros();
-    
+	
+    Serial.print(driveComplete);
+    Serial.print("\n");
+    Serial.println(turnComplete);
 
     gyro_error = yaw - targetYaw;
     //gyro_error = fmod((gyro_error + 180), 360.0) - 180;
@@ -323,7 +311,7 @@ bool mainControlLoop()
 	if((!driveComplete || !turnComplete))
 	{	
 		//If the robot is within a half inch of distance target, stop
-		if(abs(distance - distance_target) < 0.5)
+		if(abs(distance - distance_target) < 0.5 && abs(X) < STOP_SPEED_THRESHOLD)
 		{
 			X = 0;
 			driveComplete = true;
@@ -343,8 +331,8 @@ bool mainControlLoop()
 		Y = turningPID.GetOutput(0, gyro_error); //Calculate the turning power of the motors
 	
 		//Don't output if the output won't move the robot (save power)
-		X = filter(X);
-		Y = filter(Y);
+		//X = filter(X);
+		//Y = filter(Y);
 
     /*
 		if(is_nav_debug)
@@ -354,8 +342,8 @@ bool mainControlLoop()
 			Serial.println(Y);
 		}*/
 	
-		//if we are only off by 1.5 degrees, dont turn
-		if(abs(gyro_error) < 1.5)
+		//if we are only off by 1 degree, dont turn
+		if(abs(gyro_error) < 1 && abs(Y) < STOP_SPEED_THRESHOLD)
 		{
 			Y = 0;
 			turnComplete = true;
@@ -432,7 +420,7 @@ void state_mgr(int instructions){
 
            t = micros();
 		   stateMachine = MAIN_STATE;
-           //Serial.println("STATE_MGR");
+           Serial.println("STATE_MGR");
 }
 //***********************************END STATE BLOCK******************************//
 
@@ -459,6 +447,10 @@ void setup() //Initilizes some pins
     pinMode(left_in_1, OUTPUT);
     pinMode(left_in_2, OUTPUT);
 	
+	//PID Initialization
+	distancePID.SetOutputRange(0.4, -0.4);
+	turningPID.SetOutputRange(0.3, -0.3);
+	
 	//Encoder
 	attachInterrupt(1, doRightEncoder, CHANGE); //pin 3 interrupt
 	attachInterrupt(5, doLeftEncoder, CHANGE);
@@ -483,7 +475,7 @@ void setup() //Initilizes some pins
     Wire.write(0x18);     // set to zero (wakes up the MPU-6050)
     Wire.endTransmission(true);
     
-    delay(5000);  //setup delay
+    delay(10000);  //setup delay
 }
 //**************END SETUP BLOCK***************************************************
 
@@ -511,7 +503,7 @@ void loop() {
 			
 			
 			//***********Whatever code can be relatively safely placed anywhere between here and state_mgr without significantly affecting the bot's operation
-			
+			delay(1000); //Stops and waits for half a second
 			
 			
 			state_mgr(Et + 2*Ft + 4*Gt);    //sends the proper state, avoids use of bitshifting due to bugginess; state mgr will reset moving to HIGH when it is finished with its task
@@ -525,7 +517,7 @@ void loop() {
 		
 		
 
-    Serial.println(yaw);
+    //Serial.println(yaw);
 		
 		//Execute motion based on command, check for completion
 		isMotionFinished = mainControlLoop();
@@ -535,7 +527,7 @@ void loop() {
     //If motion is complete, go back to the idle state
 		if(isMotionFinished)
 		{
-      //Serial.println("Motion Complete!");
+      Serial.println("Motion Complete!");
 			digitalWrite(moving, HIGH); //VERY IMPORTANT, allows further instructions
 			stateMachine = IDLE_STATE;
 		}
