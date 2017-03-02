@@ -1,7 +1,4 @@
-#include "I2Cdev.h"
-#include "MPU6050_6Axis_MotionApps20.h"
 #include "Wire.h"
-#include "SPI.h"
 #include "PIDController.h"
 
 //A0 on MPU6050 set to 0
@@ -22,31 +19,12 @@ float FULL_TURN = 166;
 
 double STOP_SPEED_THRESHOLD = 0.15;
 
-enum State {
-	MAIN_STATE, IDLE_STATE
-};
-
-State stateMachine = IDLE_STATE;
-
-//Debug flags
-bool is_debug = true;
-bool is_nav_debug = true;
-
 //Navigation mode flags
 bool isTurnInPlace = false;
 bool turnComplete = false;
 bool driveComplete = false;
 bool isMotionFinished = false; //When the main control loop decides that it is finished, set this to true
 float startYaw = 0;
-
-
-//The gyro device itself
-MPU6050 mpu;
-float reference[3]; //[yaw, pitch, roll]
-
-volatile int leftEncoderPos = 0;
-volatile int rightEncoderPos = 0;
-double yaw = 0;
 
 int n = LOW, m = LOW;
 int leftEncoderALast = LOW;
@@ -58,12 +36,6 @@ int leftEncoderA = 18;
 int leftEncoderB = 17;
 int rightEncoderA = 3;
 int rightEncoderB = 4;
-int moving = 35;
-int instruct = 30;   
-
-int E = 11, F = 12, G = 13;
-int Et = 0, Ft = 0, Gt = 0;
-
 
 double distance = 0.0, gyro_error = 0;
 double kR = -0.00395, kL = 0.00418;//Encoder constants to convert to inches
@@ -80,6 +52,7 @@ float distPID[3] = {0.35, 0.0005, 0.000};
 PIDController turningPID(0, turnPID);
 PIDController distancePID(0, distPID);
 
+
 //************************GYRO BLOCK*******************************//
 double pollGyro(){
  Wire.beginTransmission(MPU_addr);
@@ -94,28 +67,6 @@ double pollGyro(){
  //Serial.println();
 } 
 //************END GYRO BLOCK************************************//
-
-/*
-	Reset Functions
-*/
-void resetEncoders()
-{
-	leftEncoderPos = 0;
-	rightEncoderPos = 0;
-}
-
-void resetGyro()
-{
-  yaw = 0;
-}
-/*
-	End Reset Functions
-*/
-
-/*
-	Interrupt Functions
-*/
-
 
 //If the signals are the same, the encoder is rotating forward, else backwards
 void doLeftEncoder()
@@ -139,19 +90,6 @@ void doRightEncoder()
   {
     --rightEncoderPos;
   }
-}
-
-/*
-	Driving functions
-	Arcade Drive and filtering
-*/
-double filter(double p)
-{
-  if(abs(p) < 0.1)
-  {
-    return 0;
-  }
-  return p;
 }
 
 void arcadeDrive(float forward_power, float turn_power)
@@ -226,63 +164,6 @@ void arcadeDrive(float forward_power, float turn_power)
 	End Driving Functions
 */
 
-/*
-	Driving Routines
-	These functions set targets once a state change takes place
-*/
-void forwardOne()
-{
-	isTurnInPlace = false;
-	
-	distance_target = FORWARD_DIST;
-	targetYaw = 0;
-}
-
-void leftTurn()
-{
-	isTurnInPlace = true;
-	
-	distance_target = 0;
-	targetYaw = LEFT_TURN;
-}
-
-void rightTurn()
-{
-	isTurnInPlace = true;
-	
-	distance_target = 0;
-	targetYaw = RIGHT_TURN;
-}
-
-void fullTurn()
-{
-	isTurnInPlace = true;
-	
-	distance_target = 0;
-	targetYaw = FULL_TURN;
-}
-
-void cacheSequenceClosedLoop()
-{
-	
-}
-
-void idle(int ms)
-{
-	distance_target = 0;
-	targetYaw = 0;
-	delay(ms);
-	
-	driveComplete = true;
-	turnComplete = true;
-}
-/*
-	End Driving Routines
-*/
-
-/*
-	Control Loops
-*/
 bool mainControlLoop()
 {
 
@@ -370,59 +251,10 @@ bool mainControlLoop()
 		return true;
 	}
 }
-/*
-	End Control Loops
-*/
-//******************************STATE MGR BLOCK*********************************/
-void state_mgr(int instructions){
-          
-		driveComplete = false;
-		turnComplete = false;
-		arcadeDrive(0, 0);
-		
-		delay(100);
-		
-		resetEncoders();
-		resetGyro();
-         
-          switch(instructions){//program enters the state and does whatever action it was told to do; currently 8 states available
-              case 0:                         
-                idle(1000);                 //Sit still for a second
-                break;
-              case 1:                         
-                forwardOne();				//Drive forward 1 square
-                break;
-              case 2:
-                leftTurn();					//Turn 90 degrees left
-                break;
-              case 3:
-                rightTurn();				//Turn 90 degrees right
-                break;
-              case 4:
-				fullTurn();					//Do a full 180 degree turn
-                break;
-              case 5:	
-				idle(1000);					//Cache sequence
-                break;
-              case 6:
-				idle(500);                 //Sit still for half a second
-                break;
-              case 7:
-				idle(10000);                 //STOP (currently placeholder is idle for 10 seconds)
-                break;
-              }
 
-           t = micros();
-		   stateMachine = MAIN_STATE;
-           Serial.println("STATE_MGR");
-}
-//***********************************END STATE BLOCK******************************//
-
-
-//*********************************SETUP BLOCK************************************//
-void setup() //Initilizes some pins
+void setup()
 {
-    Serial.begin(9600);
+	Serial.begin(9600);
     //encoder initialization
     pinMode(leftEncoderA, INPUT);  //left encoder
     pinMode(leftEncoderB, INPUT);
@@ -448,16 +280,8 @@ void setup() //Initilizes some pins
 	//Encoder
 	attachInterrupt(1, doRightEncoder, CHANGE); //pin 3 interrupt
 	attachInterrupt(5, doLeftEncoder, CHANGE);
-    
-    //Communication pins
-    pinMode(E, INPUT);  // state bit 0
-    pinMode(F, INPUT);  // state bit 1
-    pinMode(G, INPUT);  // state bit 2
-    pinMode(instruct, INPUT); //lets the robot know that instructions on the state lines are valid; high when invalid; low when valid
-    pinMode(moving, OUTPUT);  //asserts low when robot is moving, high when robot is stationary
-    digitalWrite(moving, HIGH); //tells AI that the robot is not moving at this time
-
-    Wire.begin();
+	
+	Wire.begin();
     Wire.beginTransmission(MPU_addr);
     Wire.write(0x6B);  // PWR_MGMT_1 register
     Wire.write(1);     // set to zero (wakes up the MPU-6050)
@@ -468,61 +292,24 @@ void setup() //Initilizes some pins
     Wire.endTransmission(true);
     
     delay(10000);  //setup delay
+	
+	t = micros();
 }
-//**************END SETUP BLOCK***************************************************
 
-
-
-//*********************************************MAIN LOOP*********************************************
-void loop() {
-    
+void loop()
+{
+	targetYaw = LEFT_TURN;
+	distance_target = 0;
+	isTurnInPlace = true;
+	
 	distance = ((double)(kL*leftEncoderPos) + (double)(kR * rightEncoderPos))/2;
 	
-	if(stateMachine == IDLE_STATE)
-	{
-		arcadeDrive(0,0);
-		//setup intializes automatically in the arduino ide
-		if(digitalRead(instruct)==HIGH )    //VERY IMPORTANT, loops while there are no instructions present; exits loop when instructions are asserted
-		{
-			
-		}
-		else
-		{
-			digitalWrite(moving,LOW);  //VERY IMPORTANT; disallows instructions, must be activated very quickly after the detection of a LOW instruction line
-			Et = digitalRead(E);      //these statements input the state
-			Ft = digitalRead(F);
-			Gt = digitalRead(G);
-			
-			
-			//***********Whatever code can be relatively safely placed anywhere between here and state_mgr without significantly affecting the bot's operation
-			delay(1000); //Stops and waits for half a second
-			
-			
-			state_mgr(Et + 2*Ft + 4*Gt);    //sends the proper state, avoids use of bitshifting due to bugginess; state mgr will reset moving to HIGH when it is finished with its task
-			
-			stateMachine = MAIN_STATE;
-		}
-	}
-    else
-	{
-		//note bot will iterate very quickly through states if it does not receive a proper state and enter the MCU function as currently coded
-		
-		
-
-    //Serial.println(yaw);
-		
-		//Execute motion based on command, check for completion
-		isMotionFinished = mainControlLoop();
+	isMotionFinished = mainControlLoop();
 
     delayMicroseconds(2000);
-
-    //If motion is complete, go back to the idle state
-		if(isMotionFinished)
-		{
-      Serial.println("Motion Complete!");
-			digitalWrite(moving, HIGH); //VERY IMPORTANT, allows further instructions
-			stateMachine = IDLE_STATE;
-		}
-      
+	
+	if(isMotionFinished)
+	{
+		while(1){} //End the program for quick calibration
 	}
 }

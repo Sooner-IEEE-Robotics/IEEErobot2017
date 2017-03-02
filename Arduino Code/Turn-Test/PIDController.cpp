@@ -14,6 +14,14 @@ PIDController::PIDController(float process_init, float *k)
     high = 1;
 }
 
+void PIDController::reinitialize(float process_init)
+{
+    last_process_var = process_init;
+
+    err = 0;
+    integrator = 0;
+}
+
 float PIDController::GetOutput(float setpoint, float process)
 {
     err = setpoint - process;

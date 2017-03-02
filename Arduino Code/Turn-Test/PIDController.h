@@ -10,7 +10,7 @@ class PIDController
         virtual ~PIDController();
         float GetOutput(float setpoint, float process);
         void SetOutputRange(float upper, float lower);
-
+        void reinitialize(float process_init);
     protected:
 
     private:
