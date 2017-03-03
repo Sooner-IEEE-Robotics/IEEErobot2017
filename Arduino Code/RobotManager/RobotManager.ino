@@ -1,7 +1,4 @@
-#include "I2Cdev.h"
-#include "MPU6050_6Axis_MotionApps20.h"
 #include "Wire.h"
-#include "SPI.h"
 #include "PIDController.h"
 
 //A0 on MPU6050 set to 0
@@ -15,9 +12,9 @@ float testing = 100000;
 
 float gyroConvert = .978 * float(250)/(float(30500) * float(100000.0));
 
-double FORWARD_DIST = 9;
-float LEFT_TURN  = -83;
-float RIGHT_TURN = 83;
+double FORWARD_DIST = 14;
+float LEFT_TURN  = -90.25;
+float RIGHT_TURN = 90.25;
 float FULL_TURN = 166;
 
 double STOP_SPEED_THRESHOLD = 0.15;
@@ -38,11 +35,6 @@ bool turnComplete = false;
 bool driveComplete = false;
 bool isMotionFinished = false; //When the main control loop decides that it is finished, set this to true
 float startYaw = 0;
-
-
-//The gyro device itself
-MPU6050 mpu;
-float reference[3]; //[yaw, pitch, roll]
 
 volatile int leftEncoderPos = 0;
 volatile int rightEncoderPos = 0;
@@ -74,7 +66,7 @@ float targetYaw = 0;
 double distance_target = 0;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
-float turnPID[3] = {0.20, 0.0005, 0.0009};
+float turnPID[3] = {0.21, 0.0007, 0.0005};
 float distPID[3] = {0.35, 0.0005, 0.000}; 
 
 PIDController turningPID(0, turnPID);
@@ -95,9 +87,7 @@ double pollGyro(){
 } 
 //************END GYRO BLOCK************************************//
 
-/*
-	Reset Functions
-*/
+//********************Reset Functions****************/
 void resetEncoders()
 {
 	leftEncoderPos = 0;
@@ -108,14 +98,9 @@ void resetGyro()
 {
   yaw = 0;
 }
-/*
-	End Reset Functions
-*/
+//***************End Reset Functions****************/
 
-/*
-	Interrupt Functions
-*/
-
+//***********Encoders*************//
 
 //If the signals are the same, the encoder is rotating forward, else backwards
 void doLeftEncoder()
@@ -140,11 +125,9 @@ void doRightEncoder()
     --rightEncoderPos;
   }
 }
+//******************End Encoders*************//
 
-/*
-	Driving functions
-	Arcade Drive and filtering
-*/
+//***************Driving functions***************///Arcade Drive and filtering
 double filter(double p)
 {
   if(abs(p) < 0.1)
@@ -222,14 +205,10 @@ void arcadeDrive(float forward_power, float turn_power)
   analogWrite(left_motor_pin, abs(left)  * 255);
   analogWrite(right_motor_pin, abs(right) * 255);
 }
-/*
-	End Driving Functions
-*/
+//********************End Driving Functions***************************/
 
-/*
-	Driving Routines
-	These functions set targets once a state change takes place
-*/
+
+//********Driving Routines****************///These functions set targets once a state change takes place
 void forwardOne()
 {
 	isTurnInPlace = false;
@@ -276,13 +255,9 @@ void idle(int ms)
 	driveComplete = true;
 	turnComplete = true;
 }
-/*
-	End Driving Routines
-*/
+//**************End Driving Routines*********************/
 
-/*
-	Control Loops
-*/
+//*************************Main Control Loop********************/
 bool mainControlLoop()
 {
 
@@ -304,17 +279,22 @@ bool mainControlLoop()
   
 	if((!driveComplete || !turnComplete))
 	{	
-		//If the robot is within a half inch of distance target, stop
-		if(abs(distance - distance_target) < 0.5 && abs(X) < STOP_SPEED_THRESHOLD)
-		{
-			X = 0;
-			driveComplete = true;
-		}
-	
 		//Get the output variables based on PID Control
 		if(!isTurnInPlace)
 		{
 			X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
+			
+			//If the robot is within a half inch of distance target, stop
+			if(abs(distance - distance_target) < 0.5 && abs(X) < STOP_SPEED_THRESHOLD)
+			{
+				X = 0;
+				driveComplete = true;
+				Serial.println("Drive Complete.");
+			}
+			else
+			{
+				driveComplete = false;
+			}
 		}
 		else
 		{
@@ -328,19 +308,14 @@ bool mainControlLoop()
 		//X = filter(X);
 		//Y = filter(Y);
 
-    /*
-		if(is_nav_debug)
-		{
-			Serial.print(X);
-			Serial.print(" ");
-			Serial.println(Y);
-		}*/
+
 	
 		//if we are only off by 1 degree, dont turn
-		if(abs(gyro_error) < 1 && abs(Y) < STOP_SPEED_THRESHOLD)
+		if(((abs(gyro_error) < 0.25 && isTurnInPlace) || (abs(gyro_error) < 0.5 && !isTurnInPlace)) && abs(Y) < STOP_SPEED_THRESHOLD)
 		{
 			Y = 0;
 			turnComplete = true;
+			Serial.println("Turn Complete.");
 		}
 		else
 		{
@@ -349,20 +324,6 @@ bool mainControlLoop()
 		
 		arcadeDrive(X,Y);
 		
-		if(is_nav_debug)
-		{
-			//Serial.print("X: ");
-			//Serial.print(X);
-			//Serial.print("\tY: ");
-			//Serial.print(Y);
-			//Serial.print("\tYAW: \t");
-			//Serial.print(yaw);
-			//Serial.print("\tYAW ERROR: \t");
-			//Serial.println(gyro_error);
-			//Serial.print("\tDistance: ");
-			//Serial.println(distance);
-		}
-		
 		return false;
 	}
 	else
@@ -370,9 +331,8 @@ bool mainControlLoop()
 		return true;
 	}
 }
-/*
-	End Control Loops
-*/
+//*****End Control Loops****/
+
 //******************************STATE MGR BLOCK*********************************/
 void state_mgr(int instructions){
           
