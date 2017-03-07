@@ -14,12 +14,12 @@ int leftEncoderB = 17;
 int rightEncoderA = 3;
 int rightEncoderB = 4;
 
-int leftEncoderPos = 0;
-int rightEncoderPos = 0;
+long leftEncoderPos = 0;
+long rightEncoderPos = 0;
 
 double distance_target = 20;
 double distance = 0.0, gyro_error;
-double kR = -0.00395, kL = 0.00418;//Encoder constants to convert to inches
+double kR = -0.00395, kL = -0.00418;//Encoder constants to convert to inches
 double Y, X;
 
 //If the signals are the same, the encoder is rotating forward, else backwards
@@ -117,7 +117,7 @@ void arcadeDrive(double forward_power, double turn_power)
 
 void setup() 
 {
-  Serial.begin(115200);
+  Serial.begin(9600);
   
    pinMode(leftEncoderA, INPUT);
   pinMode(leftEncoderB, INPUT);
@@ -144,7 +144,14 @@ void setup()
 }
 
 void loop() {
-  distance = ((double)(kL*leftEncoderPos) + (double)(kR * rightEncoderPos))/2;
+
+  Serial.print(leftEncoderPos);
+  Serial.print("\t");
+  Serial.print(rightEncoderPos);
+  Serial.print("\t");
+   
+  distance = (kL*((double)leftEncoderPos) + (kR * ((double)rightEncoderPos)))/2;
+  Serial.println(distance);
 
   X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
 
@@ -153,13 +160,13 @@ void loop() {
     X = 0;
   }
 
-  Serial.println(distance);
+ // Serial.println(distance);
   /*
   Serial.print(rightEncoderPos);
   Serial.print("\t");
   Serial.println(leftEncoderPos);
   */
-  arcadeDrive(X, 0);
+ // arcadeDrive(X, 0);
 
 	return;
 }

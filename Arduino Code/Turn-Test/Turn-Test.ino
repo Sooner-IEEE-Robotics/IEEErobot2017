@@ -9,6 +9,7 @@ const int MPU_addr=0x68;  // I2C address of the MPU-6050
 double gyro = 0;
 long int t = millis();
 float testing = 100000;
+float calVal;
 
 float gyroConvert = .978 * float(250)/(float(30500) * float(100000.0));
 
@@ -30,7 +31,7 @@ int n = LOW, m = LOW;
 int leftEncoderALast = LOW;
 int rightEncoderALast = LOW;
 
-int left_motor_pin = 6, left_in_1 = 9, left_in_2 = 10;
+int left_motor_pin = 6, left_in_1 = 10, left_in_2 = 9;
 int right_motor_pin = 44, right_in_1 = 48, right_in_2 = 46;
 int leftEncoderA = 18;
 int leftEncoderB = 17;
@@ -174,7 +175,7 @@ bool mainControlLoop()
 
   //Update the yaw of the robot
     //yaw += float((micros()-t)*(pollGyro()-6)/testing)*(250.0/32768.0);
-	yaw += float(((micros()-t)*(pollGyro()-6)))*gyroConvert;
+	yaw += float(((micros()-t)*(pollGyro()-calVal)))*gyroConvert;
     t = micros();
 	
     Serial.print(driveComplete);
@@ -272,6 +273,7 @@ void setup()
 	attachInterrupt(1, doRightEncoder, CHANGE); //pin 3 interrupt
 	attachInterrupt(5, doLeftEncoder, CHANGE);
 	
+	
 	Wire.begin();
     Wire.beginTransmission(MPU_addr);
     Wire.write(0x6B);  // PWR_MGMT_1 register
@@ -281,6 +283,15 @@ void setup()
     Wire.write(0x1B);  // Gyro
     Wire.write(0x18);     // set to zero (wakes up the MPU-6050)
     Wire.endTransmission(true);
+	
+	for(int count = 0; count < 100; count++)
+	{
+        calVal += pollGyro();
+        delayMicroseconds(10);
+    }
+    calVal = calVal/float(100);
+	Serial.print("CALVAL: ");
+	Serial.println(calVal);
     
     delay(10000);  //setup delay
 	

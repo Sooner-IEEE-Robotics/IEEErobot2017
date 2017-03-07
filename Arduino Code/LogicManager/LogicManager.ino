@@ -60,7 +60,7 @@ void initBoard()
 		if((i/7) == 6 && (i%7) == 0)
 		{
 			board[i] = 4; //A7 is the start
-			//scm.setPixelYellow(0, 6); //Update the Colorduino accordingly
+			scm.setPixelYellow(0, 6); //Update the Colorduino accordingly
 		}
 		else
 		{
@@ -375,6 +375,10 @@ void updateBounds()
 
 void setup() 
 {
+	//int startSquare = scm.setPixelYellow(0, 6);
+	
+	int startSquare = scm.setPixelRed(2, 2);
+	
 	//Comms pins
 	pinMode(E, OUTPUT);//bit 0        //output pins for the states
 	pinMode(F, OUTPUT);//bit 1
@@ -395,6 +399,8 @@ void setup()
 	pinMode(sharpSensorPin, INPUT);
 	
 	Serial.begin(9600);
+	Serial.println(startSquare);
+	
 	Serial.println("Calculating Route...");
 	
 	initBoard();
