@@ -9,6 +9,7 @@ const int MPU_addr=0x68;  // I2C address of the MPU-6050
 double gyro = 0;
 long int t = millis();
 float testing = 100000;
+float calVal;
 
 float gyroConvert = .978 * float(250)/(float(30500) * float(100000.0));
 
@@ -44,17 +45,21 @@ int n = LOW, m = LOW;
 int leftEncoderALast = LOW;
 int rightEncoderALast = LOW;
 
-int left_motor_pin = 6, left_in_1 = 9, left_in_2 = 10;
-int right_motor_pin = 44, right_in_1 = 48, right_in_2 = 46;
+int E = A3, F = A2, G = A1;
+int Et = 0, Ft = 0, Gt = 0;
+ 
+int moving = A4;//comm line
+int instruct = A0;
+ 
+int left_motor_pin = 6, left_in_1 = 10, left_in_2 = 9; //motor controller pins
+int right_motor_pin = 44, right_in_1 = 46, right_in_2 = 48; //motor controller pins
+
 int leftEncoderA = 18;
 int leftEncoderB = 17;
 int rightEncoderA = 3;
 int rightEncoderB = 4;
 int moving = 35;
 int instruct = 30;   
-
-int E = 11, F = 12, G = 13;
-int Et = 0, Ft = 0, Gt = 0;
 
 
 double distance = 0.0, gyro_error = 0;
@@ -135,6 +140,57 @@ double filter(double p)
     return 0;
   }
   return p;
+}
+
+void tankSteer(float turn_power)
+{
+	if(turn_power > 0)
+    {
+      right = 0;
+      left = turn_power;
+    }
+    else
+    {
+      right = turn_power;
+      left = 0;
+    }
+	
+	//Configure motors for directional driving
+  if(left < 0)
+  {
+	digitalWrite(left_in_1, HIGH);
+	digitalWrite(left_in_2, LOW); 
+  }
+  else if(left == 0)
+  {
+	digitalWrite(left_in_1, LOW);
+	digitalWrite(left_in_2, LOW); 
+  }
+  else
+  {
+	digitalWrite(left_in_1, LOW);
+	digitalWrite(left_in_2, HIGH); 
+  }
+  
+  if(right < 0)
+  {
+	digitalWrite(right_in_1, HIGH);
+	digitalWrite(right_in_2, LOW);
+  }
+  else if(right == 0)
+  {
+	digitalWrite(right_in_1, LOW);
+	digitalWrite(right_in_2, LOW);
+  }
+  else
+  {
+	digitalWrite(right_in_1, LOW);
+	digitalWrite(right_in_2, HIGH);
+  }
+  
+  //Output to motors
+  analogWrite(left_motor_pin, abs(left)  * 255);
+  analogWrite(right_motor_pin, abs(right) * 255);
 }
 
 void arcadeDrive(float forward_power, float turn_power)
@@ -255,6 +311,14 @@ void idle(int ms)
 	driveComplete = true;
 	turnComplete = true;
 }
+
+void goOneInch()
+{
+	isTurnInPlace = false;
+	
+	distance_target = FORWARD_DIST;
+	targetYaw = 0;
+}
 //**************End Driving Routines*********************/
 
 //*************************Main Control Loop********************/
@@ -263,7 +327,7 @@ bool mainControlLoop()
 
   //Update the yaw of the robot
     //yaw += float((micros()-t)*(pollGyro()-6)/testing)*(250.0/32768.0);
-	yaw += float(((micros()-t)*(pollGyro()-6)))*gyroConvert;
+	yaw += float(((micros()-t)*(pollGyro()-calVal)))*gyroConvert;
     t = micros();
 	
     Serial.print(driveComplete);
@@ -322,7 +386,15 @@ bool mainControlLoop()
 			turnComplete = false;
 		}
 		
-		arcadeDrive(X,Y);
+		
+		if(!isTurnInPlace)
+		{
+			arcadeDrive(X,Y);
+		}
+		else
+		{
+			tankSteer(Y);
+		}
 		
 		return false;
 	}
@@ -365,7 +437,7 @@ void state_mgr(int instructions){
 				idle(1000);					//Cache sequence
                 break;
               case 6:
-				idle(500);                 //Sit still for half a second
+				goOneInch();                 //Sit still for half a second
                 break;
               case 7:
 				idle(10000);                 //STOP (currently placeholder is idle for 10 seconds)
@@ -417,6 +489,13 @@ void setup() //Initilizes some pins
     pinMode(moving, OUTPUT);  //asserts low when robot is moving, high when robot is stationary
     digitalWrite(moving, HIGH); //tells AI that the robot is not moving at this time
 
+	for(int count = 0; count < 100; count++)
+	{
+        calVal += pollGyro();
+        delayMicroseconds(10);
+    }
+    calVal = calVal/float(100);
+	
     Wire.begin();
     Wire.beginTransmission(MPU_addr);
     Wire.write(0x6B);  // PWR_MGMT_1 register

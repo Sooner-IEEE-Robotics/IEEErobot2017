@@ -94,6 +94,7 @@ void getPath(int top, int bottom, int left, int right, int direction)
 		}
 		else if(r == botEdge && directionOfTravel == 2) //If we are going south at the bottom of the board
 		{
+			googleMaps.push(6); //Go an inch for tankSteer
 			googleMaps.push(2); //turn left
 			googleMaps.push(1); //drive straight
 			directionOfTravel = 1;
@@ -104,6 +105,7 @@ void getPath(int top, int bottom, int left, int right, int direction)
 		}
 		else if(c == leftEdge && directionOfTravel == 3)//If we are going West at the left of the board
 		{
+			googleMaps.push(6); //Go an inch for tankSteer
 			googleMaps.push(2); //turn left
 			googleMaps.push(1); //drive straight
 			directionOfTravel = 2;
@@ -114,6 +116,7 @@ void getPath(int top, int bottom, int left, int right, int direction)
 		}
 		else if(c == rightEdge && directionOfTravel == 1)//If we are going east at the right of the board
 		{
+			googleMaps.push(6); //Go an inch for tankSteer
 			googleMaps.push(2); //turn left
 			googleMaps.push(1); //drive straight
 			directionOfTravel = 0;
@@ -147,6 +150,9 @@ void getPath(int top, int bottom, int left, int right, int direction)
 	}
 	
 	//Go back to start
+	googleMaps.push(6); //Go an inch for tankSteer
+	googleMaps.push(3); //Turn right (toward east)
+	googleMaps.push(6); //Go an inch for tankSteer
 	googleMaps.push(3); //Turn right (toward south)
 	googleMaps.push(1);
 	googleMaps.push(1);
