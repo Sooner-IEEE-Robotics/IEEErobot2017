@@ -31,15 +31,17 @@ int n = LOW, m = LOW;
 int leftEncoderALast = LOW;
 int rightEncoderALast = LOW;
 
-int left_motor_pin = 6, left_in_1 = 10, left_in_2 = 9;
+int left_motor_pin = 6, left_in_1 = 9, left_in_2 = 10;
 int right_motor_pin = 44, right_in_1 = 48, right_in_2 = 46;
+
+//Encoders are reversed now, yo
 int leftEncoderA = 18;
 int leftEncoderB = 17;
 int rightEncoderA = 3;
 int rightEncoderB = 4;
 
 double distance = 0.0, gyro_error = 0;
-double kR = -0.00395, kL = 0.00418;//Encoder constants to convert to inches
+double kR = -0.00395, kL = -0.00418;//Encoder constants to convert to inches
 double Y, X;
 
 
@@ -178,9 +180,9 @@ bool mainControlLoop()
 	yaw += float(((micros()-t)*(pollGyro()-calVal)))*gyroConvert;
     t = micros();
 	
-    Serial.print(driveComplete);
-    Serial.print("\n");
-    Serial.println(turnComplete);
+    //Serial.print(driveComplete);
+    //Serial.print("\n");
+    //Serial.println(turnComplete);
 
     gyro_error = yaw - targetYaw;
     //gyro_error = fmod((gyro_error + 180), 360.0) - 180;
@@ -201,7 +203,7 @@ bool mainControlLoop()
 			{
 				X = 0;
 				driveComplete = true;
-				Serial.println("Drive Complete.");
+				//Serial.println("Drive Complete.");
 			}
 			else
 			{
@@ -214,7 +216,7 @@ bool mainControlLoop()
 			X = 0;
 		}
 		
-		Y = turningPID.GetOutput(0, gyro_error); //Calculate the turning power of the motors
+		Y = turningPID.GetOutput(0, gyro_error) * (-1); //Calculate the turning power of the motors
 	
 		//Don't output if the output won't move the robot (save power)
 		//X = filter(X);
@@ -227,7 +229,7 @@ bool mainControlLoop()
 		{
 			Y = 0;
 			turnComplete = true;
-			Serial.println("Turn Complete.");
+			//Serial.println("Turn Complete.");
 		}
 		else
 		{
@@ -266,7 +268,8 @@ void setup()
     pinMode(left_in_2, OUTPUT);
 	
 	//PID Initialization
-	distancePID.SetOutputRange(0.4, -0.4);
+	//CHANGED: makes it safer by using lower values
+	distancePID.SetOutputRange(0.3, -0.3);
 	turningPID.SetOutputRange(0.3, -0.3);
 	
 	//Encoder
@@ -283,6 +286,10 @@ void setup()
     Wire.write(0x1B);  // Gyro
     Wire.write(0x18);     // set to zero (wakes up the MPU-6050)
     Wire.endTransmission(true);
+	Wire.beginTransmission(MPU_addr);
+    Wire.write(0x1A);  // LPF
+    Wire.write(0x01);     
+    Wire.endTransmission(true);
 	
 	for(int count = 0; count < 100; count++)
 	{
@@ -294,6 +301,7 @@ void setup()
 	Serial.println(calVal);
     
     delay(10000);  //setup delay
+	yaw = 0;
 	
 	t = micros();
 }
@@ -304,7 +312,8 @@ void loop()
 	distance_target = 9;
 	isTurnInPlace = false;
 	
-	distance = ((double)(kL*leftEncoderPos) + (double)(kR * rightEncoderPos))/2;
+	//CHANGED: makes casting better
+	distance = (kL*((double)leftEncoderPos) + (kR * ((double)rightEncoderPos)))/2;
 	
 	isMotionFinished = mainControlLoop();
 

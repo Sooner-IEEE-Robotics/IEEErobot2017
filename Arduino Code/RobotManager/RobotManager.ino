@@ -51,8 +51,8 @@ int Et = 0, Ft = 0, Gt = 0;
 int moving = A4;//comm line
 int instruct = A0;
  
-int left_motor_pin = 6, left_in_1 = 9, left_in_2 = 10; //motor controller pins
-int right_motor_pin = 44, right_in_1 = 48, right_in_2 = 46; //motor controller pins
+int left_motor_pin = 6, left_in_1 = 9, left_in_2 = 10; //left motor controller pins
+int right_motor_pin = 44, right_in_1 = 48, right_in_2 = 46; //right motor controller pins
 
 //The left encoder is actually the right encoder
 int leftEncoderA = 18;
