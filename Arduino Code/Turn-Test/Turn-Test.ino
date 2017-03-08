@@ -18,7 +18,7 @@ float LEFT_TURN  = -90.25;
 float RIGHT_TURN = 90.25;
 float FULL_TURN = 166;
 
-double STOP_SPEED_THRESHOLD = 0.15;
+double STOP_SPEED_THRESHOLD = 0.125;
 
 //Navigation mode flags
 bool isTurnInPlace = false;
@@ -54,7 +54,7 @@ float targetYaw = 0;
 double distance_target = 0;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
-float turnPID[3] = {0.21, 0.0007, 0.0005};
+float turnPID[3] = {0.625, 0.0009, 0.0004};
 float distPID[3] = {0.35, 0.0005, 0.000}; 
 
 PIDController turningPID(0, turnPID);
@@ -270,7 +270,7 @@ void setup()
 	//PID Initialization
 	//CHANGED: makes it safer by using lower values
 	distancePID.SetOutputRange(0.3, -0.3);
-	turningPID.SetOutputRange(0.3, -0.3);
+	turningPID.SetOutputRange(0.425, -0.425);
 	
 	//Encoder
 	attachInterrupt(1, doRightEncoder, CHANGE); //pin 3 interrupt
@@ -321,6 +321,18 @@ void loop()
 	
 	if(isMotionFinished)
 	{
+		delay(1000);
+		bool isMotionFinishedAgain = false;
+		while(!isMotionFinishedAgain)
+		{
+			targetYaw = 0;
+			distance_target = 0;
+			isTurnInPlace = true;
+			
+			isMotionFinishedAgain = mainControlLoop();
+			
+			delayMicroseconds(2000);
+		}
 		arcadeDrive(0,0);
 		while(1){} //End the program for quick calibration
 	}
