@@ -69,8 +69,8 @@ PIDController distancePID(0, distPID);
 //Motion Profile Variables
 unsigned long startTime;
 unsigned long accelTime, cruiseTime;
-float maxVelocity = 2, maxAccel = 5, oldMaxVelocity = 2; //inches/sec and inches/sec/sec
-float kV = 0.5, kA = 0.2;
+float maxVelocity = 6, maxAccel = 8, oldMaxVelocity = 6, oldMaxAccel = 8; //inches/sec and inches/sec/sec
+float kV = 0.2, kA = 0.125;
 
 //************************GYRO BLOCK*******************************//
 double pollGyro(){
@@ -130,10 +130,17 @@ void calculateMotionProfile(double distance)
 {
 	//Restore maxVelocity if it has been changed
 	maxVelocity = oldMaxVelocity;
+	maxAccel = oldMaxAccel;
 	
-	//Since the sign of the distance is not important for time calculations, we disregard it for now.
-	//Note, it is important for driving backwards
-	distance = abs(distance);
+	//If the distance is negative, flip the maximum values
+	if(distance < 0)
+	{
+		oldMaxVelocity = maxVelocity;
+		oldMaxAccel = maxAccel;
+		
+		maxVelocity *= -1;
+		maxAccel *= -1;
+	}
 	
 	//Since v = at, we can calculate acceleration time by dividing max velocity by max acceleration
 	accelTime = maxVelocity / maxAccel;
@@ -144,7 +151,7 @@ void calculateMotionProfile(double distance)
 	double accelDistance = (2 * accelTime) * maxVelocity * (0.5);
 	
 	//If there is still distance left after both acceleration phases, add time in for constant velocity.
-	if(distance > accelDistance) 
+	if(abs(distance) > abs(accelDistance))
 	{
 		//Since x = vt we know how to find the time we will spend at cruising velocities
 		//Simply find the remaining distance and divide by max velocity
@@ -221,7 +228,7 @@ double trapezoidalMotionProfile()
 		//Output to motors
 		return motorOutput;
 	}
-	//Time is up! We should e done moving, so stop
+	//Time is up! We should be done moving, so stop
 	else
 	{
 		return 0;
@@ -321,6 +328,7 @@ bool mainControlLoop()
   
 	if((!driveComplete || !turnComplete))
 	{	
+/*
 		//Get the output variables based on PID Control
 		if(!isTurnInPlace)
 		{
@@ -343,15 +351,14 @@ bool mainControlLoop()
 		{
 			driveComplete = true;
 			X = 0;
-		}
+		}*/
 		
+		X = trapezoidalMotionProfile();
 		Y = turningPID.GetOutput(0, gyro_error) * (-1); //Calculate the turning power of the motors
 	
 		//Don't output if the output won't move the robot (save power)
 		//X = filter(X);
 		//Y = filter(Y);
-
-
 	
 		//if we are only off by 1 degree, dont turn
 		if(((abs(gyro_error) < 0.25 && isTurnInPlace) || (abs(gyro_error) < 0.5 && !isTurnInPlace)) && abs(Y) < STOP_SPEED_THRESHOLD)
@@ -433,6 +440,8 @@ void setup()
 	yaw = 0;
 	
 	t = micros();
+	
+	calculateMotionProfile(14);
 }
 
 void loop()
@@ -449,18 +458,6 @@ void loop()
 	
 	if(isMotionFinished)
 	{
-		delay(1000);
-		bool isMotionFinishedAgain = false;
-		while(!isMotionFinishedAgain)
-		{
-			targetYaw = 0;
-			distance_target = 0;
-			isTurnInPlace = true;
-			
-			isMotionFinishedAgain = mainControlLoop();
-			
-			delayMicroseconds(2000);
-		}
 		arcadeDrive(0,0);
 		while(1){} //End the program for quick calibration
 	}
