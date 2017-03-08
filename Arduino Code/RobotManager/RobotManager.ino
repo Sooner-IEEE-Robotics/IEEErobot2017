@@ -13,7 +13,7 @@ float calVal;
 
 float gyroConvert = .978 * float(250)/(float(30500) * float(1000000.0));
 
-double FORWARD_DIST = 9;
+double FORWARD_DIST = 12;
 float LEFT_TURN  = 90.25;
 float RIGHT_TURN = -90.25;
 float FULL_TURN = 166;
@@ -73,7 +73,7 @@ float targetYaw = 0;
 double distance_target = 0;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
-float turnPID[3] = {0.75, 0.0005, 0.000};
+float turnPID[3] = {0.65, 0.000, 0.000};
 float distPID[3] = {0.35, 0.0005, 0.000}; 
 
 PIDController turningPID(0, turnPID);
@@ -496,7 +496,7 @@ void setup() //Initilizes some pins
     pinMode(left_in_2, OUTPUT);
 	
 	//PID Initialization
-	distancePID.SetOutputRange(0.4, -0.4);
+	distancePID.SetOutputRange(0.25, -0.25);
 	turningPID.SetOutputRange(0.3, -0.3);
 	
 	//Encoder
@@ -544,7 +544,7 @@ void setup() //Initilizes some pins
 //*********************************************MAIN LOOP*********************************************
 void loop() {
     
-	distance = ((double)(kL*leftEncoderPos) + (double)(kR * rightEncoderPos))/2;
+	distance = (kL*((double)leftEncoderPos) + (kR * ((double)rightEncoderPos)))/2;
 	
 	if(stateMachine == IDLE_STATE)
 	{
