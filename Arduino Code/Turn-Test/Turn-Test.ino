@@ -44,7 +44,7 @@ int rightEncoderA = 3;
 int rightEncoderB = 4;
 
 double distance = 0.0, gyro_error = 0;
-double kR = -0.00395, kL = -0.00418;//Encoder constants to convert to inches
+double kR = 0.009569377, kL = 0.009569377;//Encoder constants to convert to inches
 double Y, X;
 
 
@@ -60,7 +60,7 @@ double distance_target = 0;
 double leftDistance = 0, rightDistance = 0;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
-float turnPID[3] = {0.25, 0.0009, 0.0004};
+float turnPID[3] = {0.3, 0.0009, 0.0004};
 float distPID[3] = {0.35, 0.0005, 0.000}; 
 
 PIDController turningPID(0, turnPID);
@@ -69,7 +69,7 @@ PIDController distancePID(0, distPID);
 //Motion Profile Variables
 unsigned long startTime;
 unsigned long accelTime, cruiseTime;
-float maxVelocity = 6, maxAccel = 8, oldMaxVelocity = 6, oldMaxAccel = 8; //inches/sec and inches/sec/sec
+float maxVelocity = 2, maxAccel = 4, oldMaxVelocity = 6, oldMaxAccel = 8; //inches/sec and inches/sec/sec
 float kV = 0.15, kA = 0.125;
 
 //************************GYRO BLOCK*******************************//
@@ -270,8 +270,8 @@ void arcadeDrive(float forward_power, float turn_power)
 //Configure motors for directional driving
   if(left < 0)
   {
-	digitalWrite(left_in_1, HIGH);
-	digitalWrite(left_in_2, LOW); 
+	digitalWrite(left_in_1, LOW);
+	digitalWrite(left_in_2, HIGH); 
   }
   else if(left == 0)
   {
@@ -280,14 +280,14 @@ void arcadeDrive(float forward_power, float turn_power)
   }
   else
   {
-	digitalWrite(left_in_1, LOW);
-	digitalWrite(left_in_2, HIGH); 
+	digitalWrite(left_in_1, HIGH);
+	digitalWrite(left_in_2, LOW); 
   }
   
   if(right < 0)
   {
-	digitalWrite(right_in_1, HIGH);
-	digitalWrite(right_in_2, LOW);
+	digitalWrite(right_in_1, LOW);
+	digitalWrite(right_in_2, HIGH);
   }
   else if(right == 0)
   {
@@ -296,8 +296,10 @@ void arcadeDrive(float forward_power, float turn_power)
   }
   else
   {
-	digitalWrite(right_in_1, LOW);
-	digitalWrite(right_in_2, HIGH);
+	
+	
+	digitalWrite(right_in_1, HIGH);
+	digitalWrite(right_in_2, LOW);
   }
   
   //Output to motors
@@ -333,13 +335,12 @@ bool mainControlLoop()
 		//Get the output variables based on PID Control
 		if(!isTurnInPlace)
 		{
-			//X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
-			X = FORWARD_SPEED_CONST;
+			X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
 			
 			//If the robot is within a half inch of distance target, stop
 			if(abs(distance - distance_target) < 0.5 )//&& abs(X) < STOP_SPEED_THRESHOLD)
 			{
-				X = 0;
+				//X = 0;
 				driveComplete = true;
 				//Serial.println("Drive Complete.");
 			}
@@ -354,7 +355,6 @@ bool mainControlLoop()
 			X = 0;
 		}
 		
-		//X = trapezoidalMotionProfile();
 		Y = turningPID.GetOutput(0, gyro_error) * (-1); //Calculate the turning power of the motors
 	
 		//Don't output if the output won't move the robot (save power)
@@ -364,7 +364,7 @@ bool mainControlLoop()
 		//if we are only off by 1 degree, dont turn
 		if(((abs(gyro_error) < 0.25 && isTurnInPlace) || (abs(gyro_error) < 0.5 && !isTurnInPlace)) && abs(Y) < STOP_SPEED_THRESHOLD)
 		{
-			Y = 0;
+			//Y = 0;
 			turnComplete = true;
 			//Serial.println("Turn Complete.");
 		}
@@ -442,24 +442,30 @@ void setup()
 	
 	t = micros();
 	
-	//calculateMotionProfile(14);
+	calculateMotionProfile(14);
 }
 
 void loop()
 {
 	targetYaw = 0;
-	distance_target = 9;
-	isTurnInPlace = false;
+	distance_target = 0;
+	isTurnInPlace = true;
+	
+	Serial.print(leftEncoderPos);
+	Serial.print("\t");
+	Serial.println(rightEncoderPos);
 	
 	distance = (kL*((double)leftEncoderPos) + (kR * ((double)rightEncoderPos)))/2;
 	
+	//isMotionFinished =  false;
 	isMotionFinished = mainControlLoop();
 
     delayMicroseconds(2000);
-	
+/*
 	if(isMotionFinished)
 	{
 		arcadeDrive(0,0);
 		while(1){} //End the program for quick calibration
 	}
+	*/
 }

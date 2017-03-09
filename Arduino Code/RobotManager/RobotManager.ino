@@ -16,9 +16,13 @@ float gyroConvert = .978 * float(250)/(float(30500) * float(1000000.0));
 double FORWARD_DIST = 12;
 float LEFT_TURN  = 90.25;
 float RIGHT_TURN = -90.25;
-float FULL_TURN = 166;
+float FULL_TURN = 180;
 
 double STOP_SPEED_THRESHOLD = 0.125;
+
+//Make sure to only reset the gyro after turning
+int lastState = 0;
+float GYRO_OFFSET = 0;
 
 enum State {
 	MAIN_STATE, IDLE_STATE
@@ -65,7 +69,7 @@ int rightEncoderB = 4;
 double motorOffsetBoost = 1.08;
 
 double distance = 0.0, gyro_error = 0;
-double kR = -0.00395, kL = -0.00418;//Encoder constants to convert to inches
+double kR = 0.009569377, kL = 0.009569377;//Encoder constants to convert to inches
 double Y, X;
 
 //Targets
@@ -73,8 +77,8 @@ float targetYaw = 0;
 double distance_target = 0;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
-float turnPID[3] = {0.65, 0.000, 0.000};
-float distPID[3] = {0.35, 0.0005, 0.000}; 
+float turnPID[3] = {0.58, 0.0011, 0.0004};
+float distPID[3] = {0.3, 0.0002, 0.000}; 
 
 PIDController turningPID(0, turnPID);
 PIDController distancePID(0, distPID);
@@ -88,16 +92,18 @@ double pollGyro(){
 	gyro = (~((Wire.read()<<8 | Wire.read())-1));
 	//gyro = (((~(Wire.read()-1))<<8|(~(Wire.read()-1))));//*(250/32768));
 	
- /*
-	if(abs(gyro) < 50)
+ 
+	if(abs(gyro) < 10)
 	{
 		gyro = 0;
-	}*/
+	}
 	
 	//Serial.println(gyro);
  
 	//return(gyro);//*(250.0/32768.0)-.05
 	//Serial.println();
+	
+	return gyro;
 } 
 //************END GYRO BLOCK************************************//
 
@@ -174,8 +180,9 @@ void tankSteer(float turn_power)
 	//Configure motors for directional driving
   if(left < 0)
   {
-	digitalWrite(left_in_1, HIGH);
-	digitalWrite(left_in_2, LOW); 
+	digitalWrite(left_in_1, LOW);
+	digitalWrite(left_in_2, HIGH); 
+	
   }
   else if(left == 0)
   {
@@ -184,14 +191,14 @@ void tankSteer(float turn_power)
   }
   else
   {
-	digitalWrite(left_in_1, LOW);
-	digitalWrite(left_in_2, HIGH); 
+	digitalWrite(left_in_1, HIGH);
+	digitalWrite(left_in_2, LOW); 
   }
   
   if(right < 0)
   {
-	digitalWrite(right_in_1, HIGH);
-	digitalWrite(right_in_2, LOW);
+	digitalWrite(right_in_1, LOW);
+	digitalWrite(right_in_2, HIGH);
   }
   else if(right == 0)
   {
@@ -200,14 +207,15 @@ void tankSteer(float turn_power)
   }
   else
   {
-	digitalWrite(right_in_1, LOW);
-	digitalWrite(right_in_2, HIGH);
+	digitalWrite(right_in_1, HIGH);
+	digitalWrite(right_in_2, LOW);
   }
   
   //Output to motors
   analogWrite(left_motor_pin, abs(left)  * 255);
-  analogWrite(right_motor_pin, abs(right) * 255 * motorOffsetBoost);
+  analogWrite(right_motor_pin, abs(right) * 255);
 }
+
 
 void arcadeDrive(float forward_power, float turn_power)
 {
@@ -243,8 +251,8 @@ void arcadeDrive(float forward_power, float turn_power)
 //Configure motors for directional driving
   if(left < 0)
   {
-	digitalWrite(left_in_1, HIGH);
-	digitalWrite(left_in_2, LOW); 
+	digitalWrite(left_in_1, LOW);
+	digitalWrite(left_in_2, HIGH); 
   }
   else if(left == 0)
   {
@@ -253,14 +261,14 @@ void arcadeDrive(float forward_power, float turn_power)
   }
   else
   {
-	digitalWrite(left_in_1, LOW);
-	digitalWrite(left_in_2, HIGH); 
+	digitalWrite(left_in_1, HIGH);
+	digitalWrite(left_in_2, LOW); 
   }
   
   if(right < 0)
   {
-	digitalWrite(right_in_1, HIGH);
-	digitalWrite(right_in_2, LOW);
+	digitalWrite(right_in_1, LOW);
+	digitalWrite(right_in_2, HIGH);
   }
   else if(right == 0)
   {
@@ -269,13 +277,17 @@ void arcadeDrive(float forward_power, float turn_power)
   }
   else
   {
-	digitalWrite(right_in_1, LOW);
-	digitalWrite(right_in_2, HIGH);
+	digitalWrite(right_in_1, HIGH);
+	digitalWrite(right_in_2, LOW);
   }
+  
+	Serial.print(left);
+	Serial.print("\t");
+	Serial.println(right);
   
   //Output to motors
   analogWrite(left_motor_pin, abs(left)  * 255);
-  analogWrite(right_motor_pin, abs(right) * 255 * motorOffsetBoost);
+  analogWrite(right_motor_pin, abs(right) * 255);
 }
 //********************End Driving Functions***************************/
 
@@ -353,14 +365,15 @@ bool mainControlLoop()
     //Serial.print("\n");
     //Serial.println(turnComplete);
 
-    gyro_error = yaw - targetYaw;
+    gyro_error = (yaw + GYRO_OFFSET) - targetYaw;
     //gyro_error = fmod((gyro_error + 180), 360.0) - 180;
     if(gyro_error > 180)
     {
       gyro_error = -(360 - gyro_error); 
     }
 	
-	Serial.println(gyro_error);
+	//Serial.print(gyro_error);
+	//Serial.print("\t");
   
 	if((!driveComplete || !turnComplete))
 	{	
@@ -368,13 +381,13 @@ bool mainControlLoop()
 		if(!isTurnInPlace)
 		{
 			X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
+			Y = turningPID.GetOutput(0, (rightEncoderPos - leftEncoderPos)) * (-1);
 			
 			//If the robot is within a half inch of distance target, stop
 			if(abs(distance - distance_target) < 0.5 && abs(X) < STOP_SPEED_THRESHOLD)
 			{
-				X = 0;
+				//X = 0;
 				driveComplete = true;
-				Serial.println("Drive Complete.");
 			}
 			else
 			{
@@ -383,21 +396,22 @@ bool mainControlLoop()
 		}
 		else
 		{
+			Y = turningPID.GetOutput(0, gyro_error) * (-1);
 			driveComplete = true;
 			X = 0;
 		}
 		
 		
-		Y = turningPID.GetOutput(0, gyro_error) * (-1); //Calculate the turning power of the motors
+		 //Calculate the turning power of the motors
+		
 	
 		//Don't output if the output won't move the robot (save power)
 		//X = filter(X);
 		//Y = filter(Y);
 	
-		//if we are only off by 1 degree, dont turn
 		if(((abs(gyro_error) < 0.25 && isTurnInPlace) || (abs(gyro_error) < 0.5 && !isTurnInPlace)) && abs(Y) < STOP_SPEED_THRESHOLD)
 		{
-			Y = 0;
+			//Y = 0;
 			turnComplete = true;
 			//Serial.println("Turn Complete.");
 		}
@@ -435,7 +449,11 @@ void state_mgr(int instructions){
 		delay(100);
 		
 		resetEncoders();
-		resetGyro();
+		
+		if(lastState == 2 || lastState == 3)
+		{
+			resetGyro();
+		}
 		
 		Serial.println(instructions);
          
@@ -466,6 +484,7 @@ void state_mgr(int instructions){
                 break;
               }
 
+			lastState = instructions;
            t = micros();
 		   stateMachine = MAIN_STATE;
            Serial.println("STATE_MGR");
@@ -496,8 +515,8 @@ void setup() //Initilizes some pins
     pinMode(left_in_2, OUTPUT);
 	
 	//PID Initialization
-	distancePID.SetOutputRange(0.25, -0.25);
-	turningPID.SetOutputRange(0.3, -0.3);
+	distancePID.SetOutputRange(0.27, -0.27);
+	turningPID.SetOutputRange(0.4, -0.4);
 	
 	//Encoder
 	attachInterrupt(1, doRightEncoder, CHANGE); //pin 3 interrupt
@@ -531,6 +550,7 @@ void setup() //Initilizes some pins
         delayMicroseconds(10);
     }
     calVal = calVal/float(100);
+	
 	Serial.print("CALVAL: \t");
 	Serial.println(calVal);
     
