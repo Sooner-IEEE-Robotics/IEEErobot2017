@@ -60,7 +60,7 @@ double distance_target = 0;
 double leftDistance = 0, rightDistance = 0;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
-float turnPID[3] = {0.625, 0.0009, 0.0004};
+float turnPID[3] = {0.25, 0.0009, 0.0004};
 float distPID[3] = {0.35, 0.0005, 0.000}; 
 
 PIDController turningPID(0, turnPID);
@@ -70,7 +70,7 @@ PIDController distancePID(0, distPID);
 unsigned long startTime;
 unsigned long accelTime, cruiseTime;
 float maxVelocity = 6, maxAccel = 8, oldMaxVelocity = 6, oldMaxAccel = 8; //inches/sec and inches/sec/sec
-float kV = 0.2, kA = 0.125;
+float kV = 0.15, kA = 0.125;
 
 //************************GYRO BLOCK*******************************//
 double pollGyro(){
@@ -128,6 +128,8 @@ void superArcadeDrive(float left, float right, float turn_power)
 
 void calculateMotionProfile(double distance)
 {
+	driveComplete = false;
+	
 	//Restore maxVelocity if it has been changed
 	maxVelocity = oldMaxVelocity;
 	maxAccel = oldMaxAccel;
@@ -181,16 +183,14 @@ void calculateMotionProfile(double distance)
 		maxVelocity = maxVelocity / ratio;
 	}
 	
-	//Convert the times to milliseconds
-	accelTime = accelTime * 1000;
-	cruiseTime = cruiseTime * 1000;
-	
 	startTime = millis();
 }
 
 double trapezoidalMotionProfile()
 {
-	unsigned long currentTime = millis() - startTime;
+	unsigned long cTime = (millis() - startTime);
+	
+	double currentTime = cTime / 1000;
 	
 	//If the current time is less than the time it takes to accelerate, we are in the acceleration phase
 	if(currentTime < accelTime) 
@@ -231,6 +231,7 @@ double trapezoidalMotionProfile()
 	//Time is up! We should be done moving, so stop
 	else
 	{
+		driveComplete = true;
 		return 0;
 	}
 }
@@ -328,7 +329,7 @@ bool mainControlLoop()
   
 	if((!driveComplete || !turnComplete))
 	{	
-/*
+
 		//Get the output variables based on PID Control
 		if(!isTurnInPlace)
 		{
@@ -351,9 +352,9 @@ bool mainControlLoop()
 		{
 			driveComplete = true;
 			X = 0;
-		}*/
+		}
 		
-		X = trapezoidalMotionProfile();
+		//X = trapezoidalMotionProfile();
 		Y = turningPID.GetOutput(0, gyro_error) * (-1); //Calculate the turning power of the motors
 	
 		//Don't output if the output won't move the robot (save power)
@@ -406,7 +407,7 @@ void setup()
 	//PID Initialization
 	//CHANGED: makes it safer by using lower values
 	distancePID.SetOutputRange(0.3, -0.3);
-	turningPID.SetOutputRange(0.425, -0.425);
+	turningPID.SetOutputRange(0.3, -0.3);
 	
 	//Encoder
 	attachInterrupt(1, doRightEncoder, CHANGE); //pin 3 interrupt
@@ -441,7 +442,7 @@ void setup()
 	
 	t = micros();
 	
-	calculateMotionProfile(14);
+	//calculateMotionProfile(14);
 }
 
 void loop()
