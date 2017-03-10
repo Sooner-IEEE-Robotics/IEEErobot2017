@@ -16,10 +16,10 @@ float gyroConvert = .978 * float(250)/(float(30500) * float(1000000.0));
 //when output range was 0.27
 //double FORWARD_DIST = 10.5;
 
-double FORWARD_DIST = 7.8; //Try 8.25 with caster
+double FORWARD_DIST = 8; //Try 8.25 with caster
 float DRIVE_STRAIGHT = 1.1;
-float LEFT_TURN  = 82;
-float RIGHT_TURN = -77;//75 with caster wheel
+float LEFT_TURN  = 84;
+float RIGHT_TURN = -79;//75 with caster wheel
 float FULL_TURN = 180;
 
 double STOP_SPEED_THRESHOLD = 0.125;
@@ -78,7 +78,7 @@ float targetYaw = 0;
 double distance_target = 0;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
-float turnPID[3] = {0.565, 0.00, 0.000}; //P = 0.55 with less weight
+float turnPID[3] = {0.585, 0.00, 0.000}; //P = 0.55 with less weight
 float distPID[3] = {0.3, 0.0002, 0.000}; 
 
 PIDController turningPID(0, turnPID);
@@ -515,8 +515,8 @@ void setup() //Initilizes some pins
     pinMode(left_in_2, OUTPUT);
 	
 	//PID Initialization
-	distancePID.SetOutputRange(0.325, -0.325);
-	turningPID.SetOutputRange(0.4, -0.4);//was 0.35 with less weight
+	distancePID.SetOutputRange(0.34, -0.34);
+	turningPID.SetOutputRange(0.425, -0.425);//was 0.35 with less weight
 	
 	//Encoder
 	attachInterrupt(1, doRightEncoder, CHANGE); //pin 3 interrupt
@@ -583,7 +583,7 @@ void loop() {
 			
 			
 			//***********Whatever code can be relatively safely placed anywhere between here and state_mgr without significantly affecting the bot's operation
-			delay(2000); //Stops and waits for a bit
+			delay(4000); //Stops and waits for a bit
 			
 			
 			state_mgr(Et + 2*Ft + 4*Gt);    //sends the proper state, avoids use of bitshifting due to bugginess; state mgr will reset moving to HIGH when it is finished with its task
