@@ -32,8 +32,15 @@ bool activelyAvoidingObstacles = false;
 //Position of the robot
 int CURRENT_ROW = 6, CURRENT_COL = 0;
 
+
 //Edge Management variables used to constrain new spirals
-int MIN_COL = 1, MAX_COL = 6, MIN_ROW = 0, MAX_ROW = 6;
+
+//If we are doing the 7x7 outer
+//int MIN_COL = 1, MAX_COL = 6, MIN_ROW = 0, MAX_ROW = 6;
+
+//If we are doing the 5x5 pattern
+int MIN_COL = 2, MAX_COL = 5, MIN_ROW = 1, MAX_ROW = 5;
+
 
 //Directions to follow in order to win
 QueueList<byte> googleMaps;
@@ -82,7 +89,7 @@ void getPath(int top, int bottom, int left, int right, int direction)
 	for(int i = 0; i < boardSize; ++i)
 	{
 		
-		if(r == (topEdge-1) && directionOfTravel == 0) //If we are going north at the top of the board.
+		if(r == (topEdge+1) && directionOfTravel == 0) //If we are going north at the top of the board.
 		{
 			googleMaps.push(6); //Go an inch for tankSteer
 			googleMaps.push(3); //turn right
@@ -106,7 +113,7 @@ void getPath(int top, int bottom, int left, int right, int direction)
 			//++c;
 			++r;
 		}
-		else if(c == (leftEdge-1) && directionOfTravel == 3)//If we are going West at the left of the board
+		else if(c == (leftEdge+1) && directionOfTravel == 3)//If we are going West at the left of the board
 		{
 			googleMaps.push(6); //Go an inch for tankSteer
 			googleMaps.push(3); //turn right
@@ -121,7 +128,7 @@ void getPath(int top, int bottom, int left, int right, int direction)
 		else if(c == (rightEdge-1) && directionOfTravel == 1)//If we are going east at the right of the board
 		{
 			googleMaps.push(6); //Go an inch for tankSteer
-			googleMaps.push(2); //turn left
+			googleMaps.push(3); //turn left
 			//googleMaps.push(1); //drive straight
 			directionOfTravel = 2;
 			
@@ -410,6 +417,16 @@ void setup()
 	Serial.println("Calculating Route...");
 	
 	initBoard();
+	
+	//make a zig zag pattern to get to the middle 5x5 bottom left corner square, facing north
+	googleMaps.push(6);
+	googleMaps.push(3);
+	//googleMaps.push(6);
+	googleMaps.push(2);
+	
+	CURRENT_COL = 1;
+	CURRENT_ROW = 5;
+	
 	
 	//Generate the first path
  	//googleMaps = *spiral.getDefaultPath();

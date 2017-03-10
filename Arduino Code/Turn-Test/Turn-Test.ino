@@ -296,11 +296,13 @@ void arcadeDrive(float forward_power, float turn_power)
   }
   else
   {
-	
-	
 	digitalWrite(right_in_1, HIGH);
 	digitalWrite(right_in_2, LOW);
   }
+  
+  Serial.print(abs(left)  * 255);
+  Serial.print("\t");
+  Serial.println(abs(right)  * 255);
   
   //Output to motors
   analogWrite(left_motor_pin, abs(left)  * 255);
@@ -329,58 +331,52 @@ bool mainControlLoop()
       gyro_error = -(360 - gyro_error); 
     }
   
-	if((!driveComplete || !turnComplete))
-	{	
-
-		//Get the output variables based on PID Control
-		if(!isTurnInPlace)
+	
+	//Get the output variables based on PID Control
+	if(!isTurnInPlace)
+	{
+		X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
+		
+		//If the robot is within a half inch of distance target, stop
+		if(abs(distance - distance_target) < 0.5 )//&& abs(X) < STOP_SPEED_THRESHOLD)
 		{
-			X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
-			
-			//If the robot is within a half inch of distance target, stop
-			if(abs(distance - distance_target) < 0.5 )//&& abs(X) < STOP_SPEED_THRESHOLD)
-			{
-				//X = 0;
-				driveComplete = true;
-				//Serial.println("Drive Complete.");
-			}
-			else
-			{
-				driveComplete = false;
-			}
-		}
-		else
-		{
+			//X = 0;
 			driveComplete = true;
-			X = 0;
-		}
-		
-		Y = turningPID.GetOutput(0, gyro_error) * (-1); //Calculate the turning power of the motors
-	
-		//Don't output if the output won't move the robot (save power)
-		//X = filter(X);
-		//Y = filter(Y);
-	
-		//if we are only off by 1 degree, dont turn
-		if(((abs(gyro_error) < 0.25 && isTurnInPlace) || (abs(gyro_error) < 0.5 && !isTurnInPlace)) && abs(Y) < STOP_SPEED_THRESHOLD)
-		{
-			//Y = 0;
-			turnComplete = true;
-			//Serial.println("Turn Complete.");
+			//Serial.println("Drive Complete.");
 		}
 		else
 		{
-			turnComplete = false;
+			driveComplete = false;
 		}
-		
-		arcadeDrive(X,Y);
-		
-		return false;
 	}
 	else
 	{
-		return true;
+		driveComplete = true;
+		X = 0;
 	}
+	
+	Y = turningPID.GetOutput(0, gyro_error) * (-1); //Calculate the turning power of the motors
+	
+	Serial.println(Y);
+	//Don't output if the output won't move the robot (save power)
+	//X = filter(X);
+	//Y = filter(Y);
+	
+	//if we are only off by 1 degree, dont turn
+	if(((abs(gyro_error) < 0.25 && isTurnInPlace) || (abs(gyro_error) < 0.5 && !isTurnInPlace)) && abs(Y) < STOP_SPEED_THRESHOLD)
+	{
+		//Y = 0;
+		turnComplete = true;
+		//Serial.println("Turn Complete.");
+	}
+	else
+	{
+		turnComplete = false;
+	}
+	
+	arcadeDrive(X,Y);
+	
+	return driveComplete && turnComplete;
 }
 
 void setup()
@@ -442,7 +438,7 @@ void setup()
 	
 	t = micros();
 	
-	calculateMotionProfile(14);
+	//calculateMotionProfile(14);
 }
 
 void loop()
@@ -451,14 +447,14 @@ void loop()
 	distance_target = 0;
 	isTurnInPlace = true;
 	
-	Serial.print(leftEncoderPos);
-	Serial.print("\t");
-	Serial.println(rightEncoderPos);
+	//Serial.println(yaw);
 	
 	distance = (kL*((double)leftEncoderPos) + (kR * ((double)rightEncoderPos)))/2;
 	
 	//isMotionFinished =  false;
 	isMotionFinished = mainControlLoop();
+	
+	Serial.println("GO");
 
     delayMicroseconds(2000);
 /*

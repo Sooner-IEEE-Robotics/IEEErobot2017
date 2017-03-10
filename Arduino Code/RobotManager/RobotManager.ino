@@ -13,9 +13,13 @@ float calVal;
 
 float gyroConvert = .978 * float(250)/(float(30500) * float(1000000.0));
 
-double FORWARD_DIST = 12;
-float LEFT_TURN  = 90.25;
-float RIGHT_TURN = -90.25;
+//when output range was 0.27
+//double FORWARD_DIST = 10.5;
+
+double FORWARD_DIST = 7.8; //Try 8.25 with caster
+float DRIVE_STRAIGHT = 1.1;
+float LEFT_TURN  = 82;
+float RIGHT_TURN = -77;//75 with caster wheel
 float FULL_TURN = 180;
 
 double STOP_SPEED_THRESHOLD = 0.125;
@@ -65,9 +69,6 @@ int leftEncoderB = 17;
 int rightEncoderA = 3;
 int rightEncoderB = 4;
 
-//Multiplies the right motor power a bit because I think it's weaker
-double motorOffsetBoost = 1.08;
-
 double distance = 0.0, gyro_error = 0;
 double kR = 0.009569377, kL = 0.009569377;//Encoder constants to convert to inches
 double Y, X;
@@ -77,7 +78,7 @@ float targetYaw = 0;
 double distance_target = 0;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
-float turnPID[3] = {0.58, 0.0011, 0.0004};
+float turnPID[3] = {0.55, 0.00, 0.000}; //P = 0.525 with caster wheel
 float distPID[3] = {0.3, 0.0002, 0.000}; 
 
 PIDController turningPID(0, turnPID);
@@ -161,12 +162,14 @@ void tankSteer(float turn_power)
 {
 	float right, left;
 	 
-	if(targetYaw == RIGHT_TURN)
+	 Serial.println(turn_power);
+	 
+	if(targetYaw < 0)
     {
       right = 0;
-      left = -turn_power;
+      left = turn_power;
     }
-    else if(targetYaw == LEFT_TURN)
+    else if(targetYaw > 0)
     {
       right = -turn_power;
       left = 0;
@@ -256,8 +259,9 @@ void arcadeDrive(float forward_power, float turn_power)
   }
   else if(left == 0)
   {
-	digitalWrite(left_in_1, LOW);
-	digitalWrite(left_in_2, LOW); 
+	digitalWrite(left_in_1, HIGH);
+	digitalWrite(left_in_2, HIGH); 
+	analogWrite(left_motor_pin, 255);
   }
   else
   {
@@ -272,19 +276,20 @@ void arcadeDrive(float forward_power, float turn_power)
   }
   else if(right == 0)
   {
-	digitalWrite(right_in_1, LOW);
-	digitalWrite(right_in_2, LOW);
+	digitalWrite(right_in_1, HIGH);
+	digitalWrite(right_in_2, HIGH);
+	analogWrite(right_motor_pin, 255);
   }
   else
   {
 	digitalWrite(right_in_1, HIGH);
 	digitalWrite(right_in_2, LOW);
   }
-  
+  /*
 	Serial.print(left);
 	Serial.print("\t");
 	Serial.println(right);
-  
+  */
   //Output to motors
   analogWrite(left_motor_pin, abs(left)  * 255);
   analogWrite(right_motor_pin, abs(right) * 255);
@@ -298,7 +303,7 @@ void forwardOne()
 	isTurnInPlace = false;
 	
 	distance_target = FORWARD_DIST;
-	targetYaw = 0;
+	targetYaw = DRIVE_STRAIGHT;
 }
 
 void leftTurn()
@@ -344,7 +349,7 @@ void goOneInch()
 {
 	isTurnInPlace = false;
 	
-	distance_target = 1.5;
+	distance_target = 3;
 	targetYaw = 0;
 }
 //**************End Driving Routines*********************/
@@ -374,68 +379,63 @@ bool mainControlLoop()
 	
 	//Serial.print(gyro_error);
 	//Serial.print("\t");
-  
-	if((!driveComplete || !turnComplete))
-	{	
-		//Get the output variables based on PID Control
-		if(!isTurnInPlace)
+	
+	//Get the output variables based on PID Control
+	if(!isTurnInPlace)
+	{
+		X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
+		Y = turningPID.GetOutput(0, gyro_error) * (-1);
+		//Y = turningPID.GetOutput(0, (rightEncoderPos - leftEncoderPos)) * (-1);
+		
+		//If the robot is within a half inch of distance target, stop
+		if(abs(distance - distance_target) < 0.5 && abs(X) < STOP_SPEED_THRESHOLD)
 		{
-			X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
-			Y = turningPID.GetOutput(0, (rightEncoderPos - leftEncoderPos)) * (-1);
-			
-			//If the robot is within a half inch of distance target, stop
-			if(abs(distance - distance_target) < 0.5 && abs(X) < STOP_SPEED_THRESHOLD)
-			{
-				//X = 0;
-				driveComplete = true;
-			}
-			else
-			{
-				driveComplete = false;
-			}
-		}
-		else
-		{
-			Y = turningPID.GetOutput(0, gyro_error) * (-1);
+			//X = 0;
 			driveComplete = true;
-			X = 0;
-		}
-		
-		
-		 //Calculate the turning power of the motors
-		
-	
-		//Don't output if the output won't move the robot (save power)
-		//X = filter(X);
-		//Y = filter(Y);
-	
-		if(((abs(gyro_error) < 0.25 && isTurnInPlace) || (abs(gyro_error) < 0.5 && !isTurnInPlace)) && abs(Y) < STOP_SPEED_THRESHOLD)
-		{
-			//Y = 0;
-			turnComplete = true;
-			//Serial.println("Turn Complete.");
 		}
 		else
 		{
-			turnComplete = false;
+			driveComplete = false;
 		}
-		
-		
-		if(!isTurnInPlace)
-		{
-			arcadeDrive(X,Y);
-		}
-		else
-		{
-			tankSteer(Y);
-		}
-		
-		return false;
 	}
 	else
 	{
-		return true;
+		Y = turningPID.GetOutput(0, gyro_error) * (-1) * 0.8;
+		driveComplete = true;
+		X = 0;
 	}
+	
+	
+	 //Calculate the turning power of the motors
+	//Y = turningPID.GetOutput(0, gyro_error) * (-1);
+	
+	//Don't output if the output won't move the robot (save power)
+	//X = filter(X);
+	//Y = filter(Y);
+	
+	if(((abs(gyro_error) < 0.25 && isTurnInPlace) || (abs(gyro_error) < 0.5 && !isTurnInPlace)) && abs(Y) < STOP_SPEED_THRESHOLD)
+	{
+		//Y = 0;
+		turnComplete = true;
+		//Serial.println("Turn Complete.");
+	}
+	else
+	{
+		turnComplete = false;
+	}
+	
+	
+	if(!isTurnInPlace)
+	{
+		arcadeDrive(X,Y);
+	}
+	else
+	{
+		tankSteer(Y);
+	}
+	
+	return driveComplete && turnComplete;
+	
 }
 //*****End Control Loops****/
 
@@ -450,10 +450,10 @@ void state_mgr(int instructions){
 		
 		resetEncoders();
 		
-		if(lastState == 2 || lastState == 3)
-		{
+		//if(lastState == 2 || lastState == 3)
+		//{
 			resetGyro();
-		}
+		//}
 		
 		Serial.println(instructions);
          
@@ -515,8 +515,8 @@ void setup() //Initilizes some pins
     pinMode(left_in_2, OUTPUT);
 	
 	//PID Initialization
-	distancePID.SetOutputRange(0.27, -0.27);
-	turningPID.SetOutputRange(0.4, -0.4);
+	distancePID.SetOutputRange(0.325, -0.325);
+	turningPID.SetOutputRange(0.35, -0.35);
 	
 	//Encoder
 	attachInterrupt(1, doRightEncoder, CHANGE); //pin 3 interrupt
