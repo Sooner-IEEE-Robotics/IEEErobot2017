@@ -78,7 +78,7 @@ float targetYaw = 0;
 double distance_target = 0;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
-float turnPID[3] = {0.55, 0.00, 0.000}; //P = 0.525 with caster wheel
+float turnPID[3] = {0.565, 0.00, 0.000}; //P = 0.55 with less weight
 float distPID[3] = {0.3, 0.0002, 0.000}; 
 
 PIDController turningPID(0, turnPID);
@@ -516,7 +516,7 @@ void setup() //Initilizes some pins
 	
 	//PID Initialization
 	distancePID.SetOutputRange(0.325, -0.325);
-	turningPID.SetOutputRange(0.35, -0.35);
+	turningPID.SetOutputRange(0.4, -0.4);//was 0.35 with less weight
 	
 	//Encoder
 	attachInterrupt(1, doRightEncoder, CHANGE); //pin 3 interrupt
