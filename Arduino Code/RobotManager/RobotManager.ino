@@ -516,7 +516,7 @@ void setup() //Initilizes some pins
 	
 	//PID Initialization
 	distancePID.SetOutputRange(0.34, -0.34);
-	turningPID.SetOutputRange(0.425, -0.425);//was 0.35 with less weight
+	turningPID.SetOutputRange(0.4, -0.4);//was 0.35 with less weight
 	
 	//Encoder
 	attachInterrupt(1, doRightEncoder, CHANGE); //pin 3 interrupt
