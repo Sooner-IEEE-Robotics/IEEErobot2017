@@ -29,9 +29,15 @@ int currentOrientation = 0;
 //Are we trying to avoid obstacles right now?
 bool activelyAvoidingObstacles = false;
 
+//Are we finding the cache?
+bool cacheSequenceActive = false;
+bool cacheFoundBefore = false;
+
 //Position of the robot
 int CURRENT_ROW = 6, CURRENT_COL = 0;
 
+//Round 3 flag just in case
+bool isRoundThree = false;
 
 //Edge Management variables used to constrain new spirals
 
@@ -44,6 +50,9 @@ int MIN_COL = 2, MAX_COL = 5, MIN_ROW = 1, MAX_ROW = 5;
 
 //Directions to follow in order to win
 QueueList<byte> googleMaps;
+
+//Directions for the cache
+QueueList<byte> mapQuest;
 
 //Obstacle Avoidance Stack of endpoints
 StackList<int> endPoints;
@@ -162,19 +171,20 @@ void getPath(int top, int bottom, int left, int right, int direction)
 	}
 	
 	//Go back to start
-	/*
-	googleMaps.push(6); //Go an inch for tankSteer
-	googleMaps.push(3); //Turn right (toward east)
+	googleMaps.push(0); //Back up one square
 	googleMaps.push(6); //Go an inch for tankSteer
 	googleMaps.push(3); //Turn right (toward south)
 	googleMaps.push(1);
 	googleMaps.push(1);
-	googleMaps.push(1);
+	googleMaps.push(6); //Go an inch for tankSteer
 	googleMaps.push(3); //Turn Right (toward west)
 	googleMaps.push(1);
 	googleMaps.push(1);
 	googleMaps.push(1);
-	googleMaps.push(7);*/
+	googleMaps.push(6); //Go an inch for tankSteer
+	googleMaps.push(3); //Turn left (toward south)
+	googleMaps.push(6); //Go an inch to be in A7
+	
 }
 
 void avoidObstacle(int obstacle_location)
@@ -386,11 +396,73 @@ void updateBounds()
 }
 //***********************END EDGE MANAGEMENT********************//
 
+//*********************CACHE FINDING**************************//
+//***********************CACHE SEQUENCE*******************//
+
+/*
+//Part 1
+1. Back up
+2. inch forward
+3. Left
+4. inch forward
+5. Left
+6. Check for Metal
+7. If Metal = True -> Part 2, else Part 3
+*/
+void setupPartOne()
+{
+	mapQuest.push(0);
+	mapQuest.push(6);
+	mapQuest.push(2);
+	mapQuest.push(6);
+	mapQuest.push(2);
+}
+
+/*
+//Part 2
+1. Undo Left Turn
+2-7. Cache Closed Loop
+8. Back up
+9. inch forward
+10. Right
+11. Motion Complete!
+*/
+void setupPartTwo()
+{
+	mapQuest.push(7);
+	mapQuest.push(5);
+	mapQuest.push(0);
+	mapQuest.push(6);
+	mapQuest.push(3);
+}
+
+/*
+//Part 3
+1. inch forward
+2. Left
+3-8. Cache Closed Loop
+9. inch forward
+10. Left
+11. Forward
+12. Motion Complete!!
+*/
+void setupPartThree()
+{
+	mapQuest.push(6);
+	mapQuest.push(2);
+	mapQuest.push(5);
+	mapQuest.push(6);
+	mapQuest.push(2);
+	mapQuest.push(1);
+}
+
+//*********************END CACHE FINDING**************************//
+
 void setup() 
 {
-	//int startSquare = scm.setPixelYellow(0, 6);
+	int startSquare = scm.setPixelYellow(0, 6);
 	
-	int startSquare = scm.setPixelRed(2, 2);
+	//int startSquare = scm.setPixelRed(2, 2);
 	
 	//Comms pins
 	pinMode(E, OUTPUT);//bit 0        //output pins for the states
@@ -503,7 +575,6 @@ void loop()
 			
 			
 		//*****Go through the checklist of things to do before actually moving.****//
-		/*
 		if(digitalRead(metalDetectorPin) == HIGH) //If metal is found, update map and display to colorduino
 		{
 			int i = (CURRENT_ROW*7) + CURRENT_COL;
@@ -511,7 +582,15 @@ void loop()
 			
 			//Update the colorduino to show the main tunnel
 			scm.setPixelRed(CURRENT_COL, CURRENT_ROW);
+			
+			if(!cacheFoundBefore)
+			{
+				cacheSequenceActive = true;
+				cacheFoundBefore = true;
+			}
 		}
+		
+		/*
 		if(analogRead(sharpSensorPin) < OBSTACLE_THRESHOLD) //If there is an obstacle in front of us
 		{
 			int i;
@@ -539,7 +618,10 @@ void loop()
 			commandApproved = false;
 		}
 		*/
-		if(commandApproved)
+		
+		
+		
+		if(commandApproved && !cacheSequenceActive)
 		{
 			command = googleMaps.pop(); //Gets the next command from the queue.
 			
@@ -555,6 +637,15 @@ void loop()
 				activelyAvoidingObstacles = false;
 				getPath(MIN_ROW, MAX_ROW, MIN_COL, MAX_COL, currentOrientation);
 			}
+		}
+		else if(cacheSequenceActive)
+		{
+			if(mapQuest.count() <= 1)
+			{
+				cacheSequenceActive = false;
+			}
+			
+			command = mapQuest.pop();
 		}
 		else
 		{

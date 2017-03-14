@@ -22,11 +22,18 @@ float LEFT_TURN  = 84;
 float RIGHT_TURN = -79;//75 with caster wheel
 float FULL_TURN = 180;
 
-double STOP_SPEED_THRESHOLD = 0.125;
+double STOP_SPEED_THRESHOLD = 0.1;//used to be 0.125
+
+//Keep consistent across voltages
+double kVolt = 5; //Multiply the reciprocal of the voltage by this constant to get output scale factor
 
 //Make sure to only reset the gyro after turning
 int lastState = 0;
 float GYRO_OFFSET = 0;
+
+//MAP MANAGEMENT
+int row = 6, col = 0;
+
 
 enum State {
 	MAIN_STATE, IDLE_STATE
@@ -92,8 +99,7 @@ double pollGyro(){
 	Wire.requestFrom(MPU_addr,2,true);  // request a total of 2 registers
 	gyro = (~((Wire.read()<<8 | Wire.read())-1));
 	//gyro = (((~(Wire.read()-1))<<8|(~(Wire.read()-1))));//*(250/32768));
-	
- 
+
 	if(abs(gyro) < 10)
 	{
 		gyro = 0;
@@ -330,9 +336,21 @@ void fullTurn()
 	targetYaw = FULL_TURN;
 }
 
+/* Cache sequence instructions
+-----------------------------------------
+3. inch forward
+4. Arm (up and down)
+5. inch forward
+6. Camera
+7. go to end of square
+8. Back up
+-----------------------------------------
+*/
 void cacheSequenceClosedLoop()
 {
-	
+	isTurnInPlace = false;
+	distance_target = FORWARD_DIST;
+	targetYaw = DRIVE_STRAIGHT;
 }
 
 void idle(int ms)
@@ -352,23 +370,37 @@ void goOneInch()
 	distance_target = 3;
 	targetYaw = 0;
 }
+
+void backOne()
+{
+	isTurnInPlace = false;
+	
+	distance_target = -FORWARD_DIST;
+	targetYaw = DRIVE_STRAIGHT;//Might need to be negative as well?
+}
+
+void undoLastCommand()
+{
+	if(isTurnInPlace)
+	{
+		targetYaw = -targetYaw;
+	}
+	else
+	{
+		distance_target = -distance_target;
+		targetYaw = targetYaw;//Might need to be negative as well?
+	}
+}
 //**************End Driving Routines*********************/
 
 //*************************Main Control Loop********************/
 bool mainControlLoop()
 {
 
-  //Update the yaw of the robot
+	//Update the yaw of the robot
     //yaw += float((micros()-t)*(pollGyro()-6)/testing)*(250.0/32768.0);
 	yaw += float(((micros()-t)*(pollGyro()-calVal)))*gyroConvert;
     t = micros();
-	
-	//Serial.print(yaw);
-	//Serial.print("\t");
-	
-    //Serial.print(driveComplete);
-    //Serial.print("\n");
-    //Serial.println(turnComplete);
 
     gyro_error = (yaw + GYRO_OFFSET) - targetYaw;
     //gyro_error = fmod((gyro_error + 180), 360.0) - 180;
@@ -377,15 +409,11 @@ bool mainControlLoop()
       gyro_error = -(360 - gyro_error); 
     }
 	
-	//Serial.print(gyro_error);
-	//Serial.print("\t");
-	
 	//Get the output variables based on PID Control
 	if(!isTurnInPlace)
 	{
 		X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
 		Y = turningPID.GetOutput(0, gyro_error) * (-1);
-		//Y = turningPID.GetOutput(0, (rightEncoderPos - leftEncoderPos)) * (-1);
 		
 		//If the robot is within a half inch of distance target, stop
 		if(abs(distance - distance_target) < 0.5 && abs(X) < STOP_SPEED_THRESHOLD)
@@ -404,14 +432,6 @@ bool mainControlLoop()
 		driveComplete = true;
 		X = 0;
 	}
-	
-	
-	 //Calculate the turning power of the motors
-	//Y = turningPID.GetOutput(0, gyro_error) * (-1);
-	
-	//Don't output if the output won't move the robot (save power)
-	//X = filter(X);
-	//Y = filter(Y);
 	
 	if(((abs(gyro_error) < 0.25 && isTurnInPlace) || (abs(gyro_error) < 0.5 && !isTurnInPlace)) && abs(Y) < STOP_SPEED_THRESHOLD)
 	{
@@ -440,54 +460,52 @@ bool mainControlLoop()
 //*****End Control Loops****/
 
 //******************************STATE MGR BLOCK*********************************/
-void state_mgr(int instructions){
+void state_mgr(int instructions)
+{
           
-		driveComplete = false;
-		turnComplete = false;
-		arcadeDrive(0, 0);
-		
-		delay(100);
-		
-		resetEncoders();
-		
-		//if(lastState == 2 || lastState == 3)
-		//{
-			resetGyro();
-		//}
-		
-		Serial.println(instructions);
-         
-          switch(instructions){//program enters the state and does whatever action it was told to do; currently 8 states available
-              case 0:                         
-                idle(1000);                 //Sit still for a second
-                break;
-              case 1:                         
-                forwardOne();				//Drive forward 1 square
-                break;
-              case 2:
-                leftTurn();					//Turn 90 degrees left
-                break;
-              case 3:
-                rightTurn();				//Turn 90 degrees right
-                break;
-              case 4:
-				fullTurn();					//Do a full 180 degree turn
-                break;
-              case 5:	
-				idle(1000);					//Cache sequence
-                break;
-              case 6:
-				goOneInch();                 //Sit still for half a second
-                break;
-              case 7:
-				idle(10000);                 //STOP (currently placeholder is idle for 10 seconds)
-                break;
-              }
+	driveComplete = false;
+	turnComplete = false;
+	arcadeDrive(0, 0);
+	
+	delay(100);
+	
+	resetEncoders();
+	
+	resetGyro();
+	
+	Serial.println(instructions);
+     
+	switch(instructions){//program enters the state and does whatever action it was told to do; currently 8 states available
+		case 0:                         
+			backOne(1000);              //Backs up a square
+			break;
+		case 1:                         
+			forwardOne();				//Drive forward 1 square
+			break;
+		case 2:
+			leftTurn();					//Turn 90 degrees left
+			break;
+		case 3:
+			rightTurn();				//Turn 90 degrees right
+			break;
+		case 4:
+			fullTurn();					//Do a full 180 degree turn
+			break;
+		case 5:	
+			cacheSequenceClosedLoop();	//Cache sequence
+			break;
+		case 6:
+			goOneInch();                //Drive a bit forward before turning
+			break;
+		case 7:
+			undoLastCommand();          //Does the opposite of the last command
+			break;
+    }
 
-			lastState = instructions;
-           t = micros();
-		   stateMachine = MAIN_STATE;
-           Serial.println("STATE_MGR");
+	lastState = instructions;
+	t = micros();
+	stateMachine = MAIN_STATE;
+	Serial.println("STATE_MGR");
 }
 //***********************************END STATE BLOCK******************************//
 
@@ -595,19 +613,15 @@ void loop() {
 	{
 		//note bot will iterate very quickly through states if it does not receive a proper state and enter the MCU function as currently coded
 		
-		
-
-    //Serial.println(yaw);
-		
 		//Execute motion based on command, check for completion
 		isMotionFinished = mainControlLoop();
 
-    delayMicroseconds(2000);
+		delayMicroseconds(2000);
 
-    //If motion is complete, go back to the idle state
+		//If motion is complete, go back to the idle state
 		if(isMotionFinished)
 		{
-      Serial.println("Motion Complete!");
+			Serial.println("Motion Complete!");
 			digitalWrite(moving, HIGH); //VERY IMPORTANT, allows further instructions
 			stateMachine = IDLE_STATE;
 		}
