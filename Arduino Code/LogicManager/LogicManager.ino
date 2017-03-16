@@ -397,7 +397,6 @@ void updateBounds()
 //***********************END EDGE MANAGEMENT********************//
 
 //*********************CACHE FINDING**************************//
-//***********************CACHE SEQUENCE*******************//
 
 /*
 //Part 1
@@ -421,11 +420,11 @@ void setupPartOne()
 /*
 //Part 2
 1. Undo Left Turn
-2-7. Cache Closed Loop
-8. Back up
-9. inch forward
-10. Right
-11. Motion Complete!
+2-6. Cache Closed Loop
+7. Back up
+8. inch forward
+9. Right
+10. Motion Complete!
 */
 void setupPartTwo()
 {
@@ -440,11 +439,11 @@ void setupPartTwo()
 //Part 3
 1. inch forward
 2. Left
-3-8. Cache Closed Loop
-9. inch forward
-10. Left
-11. Forward
-12. Motion Complete!!
+3-7. Cache Closed Loop
+8. inch forward
+9. Left
+10. Forward
+11. Motion Complete!!
 */
 void setupPartThree()
 {

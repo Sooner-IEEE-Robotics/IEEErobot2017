@@ -1,3 +1,4 @@
+#include <Servo.h>
 #include "Wire.h"
 #include "PIDController.h"
 
@@ -79,6 +80,14 @@ int rightEncoderB = 4;
 double distance = 0.0, gyro_error = 0;
 double kR = 0.009569377, kL = 0.009569377;//Encoder constants to convert to inches
 double Y, X;
+
+//Control state of the robot based on if cache operations are underway
+bool cacheOperationsOngoing = false;
+int stepNumber = 0;
+
+//Servo Motor
+Servo cacheArm;
+int servoPin = 11;//Placeholder for now
 
 //Targets
 float targetYaw = 0;
@@ -338,19 +347,62 @@ void fullTurn()
 
 /* Cache sequence instructions
 -----------------------------------------
-3. inch forward
-4. Arm (up and down)
-5. inch forward
-6. Camera
-7. go to end of square
-8. Back up
+0. inch forward
+1. Arm (up and down)
+2. inch forward
+3. Camera
+4. Back up
 -----------------------------------------
 */
 void cacheSequenceClosedLoop()
-{
-	isTurnInPlace = false;
-	distance_target = FORWARD_DIST;
-	targetYaw = DRIVE_STRAIGHT;
+{	
+	if(stepNumber == 0)
+	{
+		isTurnInPlace = false;
+		distance_target = 3;
+		targetYaw = DRIVE_STRAIGHT;
+	}
+	else if(stepNumber == 1)
+	{		
+		//Activate Servo
+		cacheArm.write(35);
+		
+		//Wait for arm to reach position
+		delay(1000);
+		
+		//Return to start position
+		cacheArm.write(0);
+		
+		//Don't move in this step
+		isTurnInPlace = false;
+		distance_target = 0;
+		targetYaw = 0;
+	}
+	else if(stepNumber == 2)
+	{
+		isTurnInPlace = false;
+		distance_target = 3;
+		targetYaw = DRIVE_STRAIGHT;
+	}
+	else if(stepNumber == 4)
+	{
+		//Sit still and take a picture
+		delay(2000);
+		
+		//Don't move in this step
+		isTurnInPlace = false;
+		distance_target = 0;
+		targetYaw = 0;
+	}
+	else if(stepNumber == 5)
+	{
+		isTurnInPlace = false;
+		distance_target = -6;
+		targetYaw = DRIVE_STRAIGHT;
+	}
+	
+	stepNumber++;
+
 }
 
 void idle(int ms)
@@ -368,7 +420,7 @@ void goOneInch()
 	isTurnInPlace = false;
 	
 	distance_target = 3;
-	targetYaw = 0;
+	targetYaw = DRIVE_STRAIGHT;
 }
 
 void backOne()
@@ -493,6 +545,7 @@ void state_mgr(int instructions)
 			break;
 		case 5:	
 			cacheSequenceClosedLoop();	//Cache sequence
+			cacheOperationsOngoing = true; //Do multiple hardcoded commands in a row
 			break;
 		case 6:
 			goOneInch();                //Drive a bit forward before turning
@@ -539,6 +592,9 @@ void setup() //Initilizes some pins
 	//Encoder
 	attachInterrupt(1, doRightEncoder, CHANGE); //pin 3 interrupt
 	attachInterrupt(5, doLeftEncoder, CHANGE);
+	
+	//Servo
+	cacheArm.attach(servoPin);
     
     //Communication pins
     pinMode(E, INPUT);  // state bit 0
@@ -613,8 +669,38 @@ void loop() {
 	{
 		//note bot will iterate very quickly through states if it does not receive a proper state and enter the MCU function as currently coded
 		
-		//Execute motion based on command, check for completion
-		isMotionFinished = mainControlLoop();
+		//Normal operation
+		if(!cacheOperationsOngoing)
+		{
+			//Execute motion based on command, check for completion
+			isMotionFinished = mainControlLoop();
+		}
+		else //If we are doing the cache command set
+		{
+			bool isStepComplete = mainControlLoop();
+			
+			if(isStepComplete && stepNumber <= 5)
+			{
+				//Reset everything as if we were receiving a message
+				driveComplete = false;
+				turnComplete = false;
+				arcadeDrive(0, 0);
+	
+				//Wait a long time between 'commands'
+				delay(2000);
+	
+				resetEncoders();
+				resetGyro();
+				
+				//Get the next step to do.
+				cacheSequenceClosedLoop();
+			}
+			else if(isStepComplete && stepNumber > 5)
+			{
+				isMotionFinished = true;
+				stepNumber = 0;
+			}
+		}
 
 		delayMicroseconds(2000);
 
