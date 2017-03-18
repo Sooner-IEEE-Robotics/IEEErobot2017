@@ -60,7 +60,7 @@ int moving = A4;//comm line
 int instruct = A0;
  
 int left_motor_pin = 6, left_in_1 = 9, left_in_2 = 10; //left motor controller pins
-int right_motor_pin = 44, right_in_1 = 48, right_in_2 = 46; //right motor controller pins
+int right_motor_pin = 2, right_in_1 = 48, right_in_2 = 46; //right motor controller pins
 
 //The left encoder is actually the right encoder
 int leftEncoderA = 18;
@@ -76,6 +76,9 @@ double Y, X;
 //Targets
 float targetYaw = 0;
 double distance_target = 0;
+
+//Which command key are we using?
+bool isCacheCommands = false;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
 float turnPID[3] = {0.585, 0.00, 0.000}; //P = 0.55 with less weight
@@ -330,11 +333,37 @@ void fullTurn()
 	targetYaw = FULL_TURN;
 }
 
-void cacheSequenceClosedLoop()
+void forwardShort()
 {
+	isTurnInPlace = false;
 	
+	distance_target = 3;
+	targetYaw = 0;
 }
 
+void backHalf()
+{
+	isTurnInPlace = false;
+	
+	distance_target = -6;
+	targetYaw = 0;
+}
+
+void arm()
+{
+	distance_target = 0;
+	targetYaw = 0;
+	isTurnInPlace = false;
+	
+	//TODO: SERVO COMMANDS
+}
+
+void camera()
+{
+	distance_target = 0;
+	targetYaw = 0;
+	isTurnInPlace = false;
+}
 void idle(int ms)
 {
 	distance_target = 0;
@@ -456,8 +485,39 @@ void state_mgr(int instructions){
 		//}
 		
 		Serial.println(instructions);
-         
-          switch(instructions){//program enters the state and does whatever action it was told to do; currently 8 states available
+        if(isCacheCommands)
+		{
+			switch(instructions){//program enters the state and does whatever action it was told to do; currently 8 states available
+              case 0:                         
+				idle(1000);             //Sit still for a second
+                break;
+              case 1:                         
+                forwardShort();				//Drive forward 1 square
+                break;
+              case 2:
+                undoLeftTurn();				//Turn 90 degrees left
+                break;
+              case 3:
+                arm();				//Turn 90 degrees right
+                break;
+              case 4:
+				camera();				//Do a full 180 degree turn
+                break;
+              case 5:	
+				isCacheCommands = false;	//Switch to the other instruction set
+				idle(50);				
+                break;
+              case 6:
+				backHalf();               //Back up off the square that we are currently halfway on
+                break;
+              case 7:
+				idle(10000);             //STOP (currently placeholder is idle for 10 seconds)
+                break;
+              }
+		}
+		else
+		{
+			switch(instructions){//program enters the state and does whatever action it was told to do; currently 8 states available
               case 0:                         
                 idle(1000);                 //Sit still for a second
                 break;
@@ -474,20 +534,22 @@ void state_mgr(int instructions){
 				fullTurn();					//Do a full 180 degree turn
                 break;
               case 5:	
-				idle(1000);					//Cache sequence
+				isCacheCommands = true;		//Switch to the other instruction set
+				idle(50);
                 break;
               case 6:
-				goOneInch();                 //Sit still for half a second
+				goOneInch();                 //Inch forward to turn
                 break;
               case 7:
 				idle(10000);                 //STOP (currently placeholder is idle for 10 seconds)
                 break;
               }
-
-			lastState = instructions;
-           t = micros();
-		   stateMachine = MAIN_STATE;
-           Serial.println("STATE_MGR");
+		}
+		
+		lastState = instructions;
+		t = micros();
+		stateMachine = MAIN_STATE;
+        Serial.println("STATE_MGR");
 }
 //***********************************END STATE BLOCK******************************//
 
