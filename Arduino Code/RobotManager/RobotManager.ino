@@ -1,3 +1,4 @@
+#include <Servo.h>
 #include "Wire.h"
 #include "PIDController.h"
 
@@ -80,6 +81,12 @@ double distance_target = 0;
 //Which command key are we using?
 bool isCacheCommands = false;
 
+//Cache variables
+int nucleoCommandPin = A6;
+int armPin = 10;
+Servo arm;
+bool backwards = false;
+
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
 float turnPID[3] = {0.585, 0.00, 0.000}; //P = 0.55 with less weight
 float distPID[3] = {0.3, 0.0002, 0.000}; 
@@ -96,16 +103,10 @@ double pollGyro(){
 	gyro = (~((Wire.read()<<8 | Wire.read())-1));
 	//gyro = (((~(Wire.read()-1))<<8|(~(Wire.read()-1))));//*(250/32768));
 	
- 
 	if(abs(gyro) < 10)
 	{
 		gyro = 0;
 	}
-	
-	//Serial.println(gyro);
- 
-	//return(gyro);//*(250.0/32768.0)-.05
-	//Serial.println();
 	
 	return gyro;
 } 
@@ -165,23 +166,44 @@ void tankSteer(float turn_power)
 {
 	float right, left;
 	 
-	 Serial.println(turn_power);
-	 
-	if(targetYaw < 0)
-    {
-      right = 0;
-      left = turn_power;
-    }
-    else if(targetYaw > 0)
-    {
-      right = -turn_power;
-      left = 0;
-    }
+	// Serial.println(turn_power);
+	if(backwards)
+	{
+		if(targetYaw > 0)
+		{
+			right = 0;
+			left = -turn_power;
+		}
+		else if(targetYaw < 0)
+		{
+			right = turn_power;
+			left = 0;
+		}
+		else
+		{
+			right = 0;
+			left = 0;
+		}
+	}
 	else
 	{
-		right = 0;
-		left = 0;
+		if(targetYaw < 0)
+		{
+			right = 0;
+			left = turn_power;
+		}
+		else if(targetYaw > 0)
+		{
+			right = -turn_power;
+			left = 0;
+		}
+		else
+		{
+			right = 0;
+			left = 0;
+		}
 	}
+	
 	
 	//Configure motors for directional driving
   if(left < 0)
@@ -303,6 +325,7 @@ void arcadeDrive(float forward_power, float turn_power)
 //********Driving Routines****************///These functions set targets once a state change takes place
 void forwardOne()
 {
+	backwards = false;
 	isTurnInPlace = false;
 	
 	distance_target = FORWARD_DIST;
@@ -311,6 +334,7 @@ void forwardOne()
 
 void leftTurn()
 {
+	backwards = false;
 	isTurnInPlace = true;
 	
 	distance_target = 0;
@@ -319,6 +343,7 @@ void leftTurn()
 
 void rightTurn()
 {
+	backwards = false;
 	isTurnInPlace = true;
 	
 	distance_target = 0;
@@ -327,45 +352,16 @@ void rightTurn()
 
 void fullTurn()
 {
+	backwards = false;
 	isTurnInPlace = true;
 	
 	distance_target = 0;
 	targetYaw = FULL_TURN;
 }
 
-void forwardShort()
-{
-	isTurnInPlace = false;
-	
-	distance_target = 3;
-	targetYaw = 0;
-}
-
-void backHalf()
-{
-	isTurnInPlace = false;
-	
-	distance_target = -6;
-	targetYaw = 0;
-}
-
-void arm()
-{
-	distance_target = 0;
-	targetYaw = 0;
-	isTurnInPlace = false;
-	
-	//TODO: SERVO COMMANDS
-}
-
-void camera()
-{
-	distance_target = 0;
-	targetYaw = 0;
-	isTurnInPlace = false;
-}
 void idle(int ms)
 {
+	backwards = false;
 	distance_target = 0;
 	targetYaw = 0;
 	delay(ms);
@@ -376,11 +372,77 @@ void idle(int ms)
 
 void goOneInch()
 {
+	backwards = false;
 	isTurnInPlace = false;
 	
 	distance_target = 3;
 	targetYaw = 0;
 }
+
+void backOne()
+{
+	backwards = true;
+	isTurnInPlace = false;
+	
+	distance_target = -FORWARD_DIST;
+	targetYaw = 0;
+}
+
+//Cache motions
+void forwardShort()
+{
+	backwards = false;
+	isTurnInPlace = false;
+	
+	distance_target = 3;
+	targetYaw = 0;
+}
+
+void backHalf()
+{
+	backwards = true;
+	isTurnInPlace = false;
+	
+	distance_target = -6;
+	targetYaw = 0;
+}
+
+void arm()
+{
+	backwards = false;
+	distance_target = 0;
+	targetYaw = 0;
+	isTurnInPlace = false;
+	
+	//Open the lid
+	arm.write(40);
+	delay(1000);
+	arm.write(0);
+}
+
+void camera()
+{
+	backwards = false;
+	distance_target = 0;
+	targetYaw = 0;
+	isTurnInPlace = false;
+	
+	digitalWrite(nucleoCommandPin, HIGH);
+	delay(2000);
+	digitalWrite(nucleoCommandPin, LOW);
+}
+
+void undoLeftTurn()
+{
+	isTurnInPlace = true;
+	
+	//Invert tankSteer
+	backwards = true;
+	targetYaw = RIGHT_TURN;
+	
+	distance_target = 0;
+}
+
 //**************End Driving Routines*********************/
 
 //*************************Main Control Loop********************/
@@ -541,7 +603,7 @@ void state_mgr(int instructions){
 				goOneInch();                 //Inch forward to turn
                 break;
               case 7:
-				idle(10000);                 //STOP (currently placeholder is idle for 10 seconds)
+				backOne();                 //Back up 1 square
                 break;
               }
 		}
@@ -592,6 +654,12 @@ void setup() //Initilizes some pins
     pinMode(moving, OUTPUT);  //asserts low when robot is moving, high when robot is stationary
     digitalWrite(moving, HIGH); //tells AI that the robot is not moving at this time
 
+	//Servo and nucleo
+	pinMode(nucleoCommandPin, OUTPUT);
+	digitalWrite(nucleoCommandPin, LOW);
+	arm.attach(armPin);
+	arm.write(0);
+	
     Wire.begin();
     Wire.beginTransmission(MPU_addr);
     Wire.write(0x6B);  // PWR_MGMT_1 register

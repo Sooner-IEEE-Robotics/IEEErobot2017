@@ -64,6 +64,15 @@ void setupPartOne()
 	mapQuest.push(2);
 }
 
+/**
+//*********CACHE CLOSED LOOP**********
+1. inch forward
+2. Arm (up and down)
+3. inch forward
+4. Take picture
+5. Back up
+*/
+
 /*
 //Part 2
 1. Undo Left Turn
@@ -75,11 +84,17 @@ void setupPartOne()
 */
 void setupPartTwo()
 {
-	mapQuest.push(7);
-	mapQuest.push(5);
-	mapQuest.push(0);
+	mapQuest.push(5); //Enter cache mode
+	mapQuest.push(2); //Undo left
+	mapQuest.push(1);
+	mapQuest.push(3);//Arm
+	mapQuest.push(1);
+	mapQuest.push(4);//Camera
 	mapQuest.push(6);
-	mapQuest.push(3);
+	mapQuest.push(5);//Exit cache mode
+	mapQuest.push(7);//Back
+	mapQuest.push(6);
+	mapQuest.push(3);//Right
 }
 
 /*
@@ -95,11 +110,17 @@ void setupPartTwo()
 void setupPartThree()
 {
 	mapQuest.push(6);
-	mapQuest.push(2);
-	mapQuest.push(5);
-	mapQuest.push(6);
-	mapQuest.push(2);
+	mapQuest.push(2);//Left
+	mapQuest.push(5); //Enter cache mode
 	mapQuest.push(1);
+	mapQuest.push(3);//Arm
+	mapQuest.push(1);
+	mapQuest.push(4);//Camera
+	mapQuest.push(6);
+	mapQuest.push(5);//Exit cache mode
+	mapQuest.push(6);
+	mapQuest.push(2);//Left
+	mapQuest.push(1);//Forward
 }
 
 //*********************END CACHE FINDING**************************//
