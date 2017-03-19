@@ -57,7 +57,7 @@ void initBoard()
 */
 void setupPartOne()
 {
-	mapQuest.push(0);
+	mapQuest.push(7);
 	mapQuest.push(6);
 	mapQuest.push(2);
 	mapQuest.push(6);
@@ -170,8 +170,10 @@ void loop()
 	setupPartOne();
 	
 	//Test part 2
-	setupPartTwo();
-	//setupPartThree();
+	//setupPartTwo();
+	
+	//Test Part 3
+	setupPartThree();
 	
 	//Run code repeatedly based on what Google Maps tells us to do.
 	while(mapQuest.count() > 0)
@@ -182,7 +184,7 @@ void loop()
 		}
 		
 		//Cache Operations
-		command = 1;
+		command = mapQuest.pop();
 		
 		//Bitshifting is OK here for some reason
 		digitalWrite(E, command & 1); 

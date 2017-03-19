@@ -19,7 +19,7 @@ float gyroConvert = .978 * float(250)/(float(30500) * float(1000000.0));
 
 double FORWARD_DIST = 8; //Try 8.25 with caster
 float DRIVE_STRAIGHT = 1.1;
-float LEFT_TURN  = 84;
+float LEFT_TURN  = 79;
 float RIGHT_TURN = -79;//75 with caster wheel
 float FULL_TURN = 180;
 
@@ -83,12 +83,12 @@ bool isCacheCommands = false;
 
 //Cache variables
 int nucleoCommandPin = A6;
-int armPin = 10;
+int armPin = 12;
 Servo arm;
 bool backwards = false;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
-float turnPID[3] = {0.585, 0.00, 0.000}; //P = 0.55 with less weight
+float turnPID[3] = {0.59, 0.00, 0.000}; //P = 0.55 with less weight
 float distPID[3] = {0.3, 0.0002, 0.000}; 
 
 PIDController turningPID(0, turnPID);
@@ -172,11 +172,11 @@ void tankSteer(float turn_power)
 		if(targetYaw > 0)
 		{
 			right = 0;
-			left = -turn_power;
+			left = turn_power;
 		}
 		else if(targetYaw < 0)
 		{
-			right = turn_power;
+			right = -turn_power;
 			left = 0;
 		}
 		else
@@ -407,7 +407,7 @@ void backHalf()
 	targetYaw = 0;
 }
 
-void arm()
+void openCache()
 {
 	backwards = false;
 	distance_target = 0;
@@ -415,7 +415,7 @@ void arm()
 	isTurnInPlace = false;
 	
 	//Open the lid
-	arm.write(40);
+	arm.write(45);//Angle to set the arm so that it hits the lid is 45?
 	delay(1000);
 	arm.write(0);
 }
@@ -540,11 +540,8 @@ void state_mgr(int instructions){
 		delay(100);
 		
 		resetEncoders();
+		resetGyro();
 		
-		//if(lastState == 2 || lastState == 3)
-		//{
-			resetGyro();
-		//}
 		
 		Serial.println(instructions);
         if(isCacheCommands)
@@ -560,7 +557,7 @@ void state_mgr(int instructions){
                 undoLeftTurn();				//Turn 90 degrees left
                 break;
               case 3:
-                arm();				//Turn 90 degrees right
+                openCache();				//Turn 90 degrees right
                 break;
               case 4:
 				camera();				//Do a full 180 degree turn
@@ -640,7 +637,7 @@ void setup() //Initilizes some pins
 	
 	//PID Initialization
 	distancePID.SetOutputRange(0.34, -0.34);
-	turningPID.SetOutputRange(0.4, -0.4);//was 0.35 with less weight
+	turningPID.SetOutputRange(0.45, -0.45);
 	
 	//Encoder
 	attachInterrupt(1, doRightEncoder, CHANGE); //pin 3 interrupt
@@ -724,20 +721,18 @@ void loop() {
     else
 	{
 		//note bot will iterate very quickly through states if it does not receive a proper state and enter the MCU function as currently coded
-		
-		
 
-    //Serial.println(yaw);
+		//Serial.println(yaw);
 		
 		//Execute motion based on command, check for completion
 		isMotionFinished = mainControlLoop();
 
-    delayMicroseconds(2000);
+		delayMicroseconds(2000);
 
-    //If motion is complete, go back to the idle state
+		//If motion is complete, go back to the idle state
 		if(isMotionFinished)
 		{
-      Serial.println("Motion Complete!");
+			Serial.println("Motion Complete!");
 			digitalWrite(moving, HIGH); //VERY IMPORTANT, allows further instructions
 			stateMachine = IDLE_STATE;
 		}
