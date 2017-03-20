@@ -19,8 +19,8 @@ float gyroConvert = .978 * float(250)/(float(30500) * float(1000000.0));
 
 double FORWARD_DIST = 8; //Try 8.25 with caster
 float DRIVE_STRAIGHT = 1.1;
-float LEFT_TURN  = 79;
-float RIGHT_TURN = -79;//75 with caster wheel
+float LEFT_TURN  = 75;
+float RIGHT_TURN = -75;//75 with caster wheel
 float FULL_TURN = 180;
 
 double STOP_SPEED_THRESHOLD = 0.125;
@@ -88,7 +88,7 @@ Servo arm;
 bool backwards = false;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
-float turnPID[3] = {0.59, 0.00, 0.000}; //P = 0.55 with less weight
+float turnPID[3] = {0.625, 0.00, 0.000}; //P = 0.55 with less weight
 float distPID[3] = {0.3, 0.0002, 0.000}; 
 
 PIDController turningPID(0, turnPID);
@@ -443,6 +443,15 @@ void undoLeftTurn()
 	distance_target = 0;
 }
 
+void undoOneInch()
+{
+	backwards = true;
+	isTurnInPlace = false;
+	
+	distance_target = -3;
+	targetYaw = 0;
+}
+
 //**************End Driving Routines*********************/
 
 //*************************Main Control Loop********************/
@@ -570,7 +579,7 @@ void state_mgr(int instructions){
 				backHalf();               //Back up off the square that we are currently halfway on
                 break;
               case 7:
-				idle(10000);             //STOP (currently placeholder is idle for 10 seconds)
+				undoOneInch();             //Undo the motion before the left turn
                 break;
               }
 		}
@@ -616,6 +625,12 @@ void state_mgr(int instructions){
 //*********************************SETUP BLOCK************************************//
 void setup() //Initilizes some pins
 {
+	//Servo and nucleo
+	pinMode(nucleoCommandPin, OUTPUT);
+	digitalWrite(nucleoCommandPin, LOW);
+	arm.attach(armPin);
+	arm.write(0);
+	
     Serial.begin(9600);
     //encoder initialization
     pinMode(leftEncoderA, INPUT);  //left encoder
@@ -637,7 +652,7 @@ void setup() //Initilizes some pins
 	
 	//PID Initialization
 	distancePID.SetOutputRange(0.34, -0.34);
-	turningPID.SetOutputRange(0.45, -0.45);
+	turningPID.SetOutputRange(0.5, -0.5);
 	
 	//Encoder
 	attachInterrupt(1, doRightEncoder, CHANGE); //pin 3 interrupt
@@ -650,12 +665,6 @@ void setup() //Initilizes some pins
     pinMode(instruct, INPUT); //lets the robot know that instructions on the state lines are valid; high when invalid; low when valid
     pinMode(moving, OUTPUT);  //asserts low when robot is moving, high when robot is stationary
     digitalWrite(moving, HIGH); //tells AI that the robot is not moving at this time
-
-	//Servo and nucleo
-	pinMode(nucleoCommandPin, OUTPUT);
-	digitalWrite(nucleoCommandPin, LOW);
-	arm.attach(armPin);
-	arm.write(0);
 	
     Wire.begin();
     Wire.beginTransmission(MPU_addr);
