@@ -5,6 +5,10 @@ int calNum = 75;
 int metalDetectorReply = 0;
 int basement = 100000; 
 int ceiling = 0;
+
+const int aray_size = calNum ;
+int vals[75]; // !!make this calNum size!!
+
 PinName metalDetectorWritePin = PE_9;
 //PinName test = PE_11;
 DigitalOut metalDetectorWriter(metalDetectorWritePin);
@@ -58,13 +62,13 @@ const int IMAGE_WIDTH = 160;
 const int IMAGE_HEIGHT = 120;
 
 //Strategic parameters:
-const int BLACK_WHITE_THRESHOLD = 30; //This should be perfected when the LED is mounted under the robot and we see what
+int BLACK_WHITE_THRESHOLD = 30; //This should be perfected when the LED is mounted under the robot and we see what
                                       //the lighting will actually be like. For Trevor's early sample images, 90 was definitely best.
                                       //For subsequent sample images, 80 has been effective, though we have not seriously looked for an
                                       //optimal value. 
 const int INNER_DOT_RADIUS = 2; //The distance from the center of a dot within which we expect to find black.
                                 //I believe 2 is and will remain optimal.
-const int OUTER_DOT_RADIUS = 6; //The distance from the center of a dot at which we expect to find white.
+const int OUTER_DOT_RADIUS = 5; //The distance from the center of a dot at which we expect to find white.
                                 //For Trevor's early sample images, 7 was superior, though consistently correct results could be achieved with a
                                 //variety of values. This parameter should definitely be altered once the camera is mounted and we get a feel for
                                 //the distance of the dots.
@@ -488,20 +492,39 @@ int detectMetal() {
     return replyDuration; 
 }
 
-void calibrate() {               //calibrates via averaging calNum number of detector reads
+void calibrate() {               //brates via averaging calNum number of detector reads
     int result = 0;            //assumes no metal at the calibration spot
-    for(int count = 0; count < 200; count++){
-        detectMetal();
-        wait_ms(10);
-        }
-    for(int counter = 0; counter < calNum; counter++){
-        result = detectMetal();
-        if(result > ceiling){ceiling = result;}
-        if(result < basement){basement = result;}
-        wait_ms(10);
-        } 
+    int ceilingTemp = 0;
+    metalDetectorReply = 0;
+        //Someday we can start the measurement on button press, but for now let's just allow 10 seconds and then measure.
+        wait_ms(50);
+        for(int count = 0; count < 100; count++){detectMetal();}
+        //Get a measurement from the metal detector.
+        for(int count2 = 0; count2 < 50; count2++){
+            for(int count = 0; count < 10; count++){
         
-    }
+                metalDetectorReply += detectMetal();    
+                
+                
+                wait_ms(10);
+                }}
+        
+        int mesurment;
+    
+    for(int count = 0; count < (aray_size ); count++){
+        mesurment = detectMetal();
+        vals[count] = mesurment; 
+       wait_ms(10);
+        }
+            metalDetectorReply /= 10;
+            if(metalDetectorReply > 2000){metalDetectorReply = ceiling;}
+            if(metalDetectorReply < basement){basement = metalDetectorReply;}
+            if(metalDetectorReply > ceiling){ceiling = metalDetectorReply;}
+            wait_ms(50);
+            metalDetectorReply = 0;
+            
+      sevenSeg(seven[0]);  
+}    
 void setup(){
     metalDetectorWriter = 1;
     serial.baud(115200); 
@@ -524,6 +547,8 @@ void setup(){
         i2c.write(0x60, &size_JPEG[count], 2);
     }//switches to small size JPEG
     cs = 0; spi.write(0x00); spi.write(0x00);  cs = 1;//wakes up the SPI 
+    
+    
     
     }
     
@@ -561,11 +586,22 @@ void start() {
 //Writes pixel data from the camera into imageArray.
 void writePixelDataToImageArray() {
     int data = 0;
+    int fellowshipOfTheCoil = 0; int rideOfTheRohirim = 1000;
     for (int count = 0; count < 19200; count++) {                             //reads out every other pixel in order to capture monochrome b/w image only
         cs = 0; spi.write(SINGLE_FIFO_READ); data = spi.write(0x00); cs = 1;
         cs = 0; spi.write(SINGLE_FIFO_READ); spi.write(0x00); cs = 1;
         imageArray[count] = data;
     }
+    for (int count = 0; count < 19200; count++) {                             //reads out every other pixel in order to capture monochrome b/w image only
+        if(imageArray[count] > fellowshipOfTheCoil){
+                fellowshipOfTheCoil = imageArray[count];  
+            }
+        if(rideOfTheRohirim > imageArray[count]){
+            rideOfTheRohirim = imageArray[count];
+            }
+    }
+    BLACK_WHITE_THRESHOLD = .3 * (fellowshipOfTheCoil - rideOfTheRohirim);
+    
 
     //The above code can be trusted to faithfully write the pixel data to imageArray.        
     //The below code was found to produce a matrix containing flawed pixel data.
@@ -613,33 +649,49 @@ int cameraWithDotCounting() {
 
 void ultimateMetalDetectionFunction(){
         
+        int temp;
+        
         //For debugging purposes, alert the computer that the main method has been called.
         metalDetectorReply = 0;
         //Someday we can start the measurement on button press, but for now let's just allow 10 seconds and then measure.
-        wait_ms(100);
+        wait_ms(50);
         
         //Get a measurement from the metal detector.
-        for(int count = 0; count < 5; count++){
+       /* for(int count = 0; count < 10; count++){
         
         metalDetectorReply += detectMetal();    
         wait_ms(10);
         }
-        metalDetectorReply /= 5;
-        if(metalDetectorReply > ceiling * 1.35){metalDetectorReply = basement;}
+        metalDetectorReply /= 10; 
+        if(metalDetectorReply > ceiling * 2){metalDetectorReply = basement;}*/
         
-        //outputToComputer.printf("Ceil: %d\r\n",ceiling);
-        //outputToComputer.printf("Base: %d\r\n",basement);
-        //outputToComputer.printf("Det: %d\r\n", metalDetectorReply);
+        metalDetectorReply += detectMetal();
+        
+        outputToComputer.printf("Ceil: %d\r\n",ceiling);
+        outputToComputer.printf("Base: %d\r\n",basement);
+        outputToComputer.printf("Det: %d\r\n", metalDetectorReply);
+        
+         for (int i = 0; i < aray_size; i++){ 
+         vals[i] = vals[i + 1];       // shifts the values to the left
+         temp += vals[i];             // averaves the past calNum times together to prevent noise
+         } 
+         vals[aray_size - 1] = metalDetectorReply;
+          
+        metalDetectorReply = temp / aray_size; 
+       
+        outputToComputer.printf("avg: %d \r\n", metalDetectorReply);  
+       
+        
         //outputToComputer.printf("Target: %f\r\n", ceiling *1.006);
         if(metalDetectorReply < basement){
                                         basement = metalDetectorReply;
                                         ceiling = basement + basementCeilingDifference;
         }
-        if(metalDetectorReply > (ceiling-2))    //controls leds on the nucleo
+        if(metalDetectorReply > (ceiling * .8))    //controls leds on the nucleo
         {
-            if(threshold >= 5){   
-                    led = 0b111; }//serial.printf("  TRIGGERED  ");
-                    metalFound = 1;
+            if(threshold >= 3){   
+                    led = 0b111; //serial.printf("  TRIGGERED  ");
+                    metalFound = 1;}
             threshold += 1;
             }
         
@@ -660,13 +712,15 @@ int main() {
         wait(1);        
         int pictureFlag = 0; //picFlag disallows taking more than one picture
         setup();                    //sets up the camera and other things       
-        calibrate();                //calibrates the metal detector
+        //calibrate();                //calibrates the metal detector
         basementCeilingDifference = ceiling - basement;
         
+        testing = (cameraWithDotCounting());    
+                        sevenSeg(testing);
         
         
        
-        while(1){
+        /*while(1){
             
             ultimateMetalDetectionFunction();
             
@@ -677,7 +731,7 @@ int main() {
                         sevenSeg(testing);}
                 } 
             
-        }
+        }*/
         
-        
+ serial.printf("%d/r/n", BLACK_WHITE_THRESHOLD);       
 }
