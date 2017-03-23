@@ -507,7 +507,14 @@ void calibrate() {               //brates via averaging calNum number of detecto
                 
                 
                 wait_ms(10);
-                }}
+                }
+                metalDetectorReply /= 10;
+                //if(metalDetectorReply > 2000){metalDetectorReply = ceiling;}
+                if(metalDetectorReply < basement){basement = metalDetectorReply;}
+                if(metalDetectorReply > ceiling){ceiling = metalDetectorReply;}
+                wait_ms(50);
+                metalDetectorReply = 0;
+            }
         
         int mesurment;
     
@@ -516,12 +523,7 @@ void calibrate() {               //brates via averaging calNum number of detecto
         vals[count] = mesurment; 
        wait_ms(10);
         }
-            metalDetectorReply /= 10;
-            if(metalDetectorReply > 2000){metalDetectorReply = ceiling;}
-            if(metalDetectorReply < basement){basement = metalDetectorReply;}
-            if(metalDetectorReply > ceiling){ceiling = metalDetectorReply;}
-            wait_ms(50);
-            metalDetectorReply = 0;
+            
             
       sevenSeg(seven[0]);  
 }    
@@ -649,37 +651,22 @@ int cameraWithDotCounting() {
 
 void ultimateMetalDetectionFunction(){
         
-        int temp;
-        
-        //For debugging purposes, alert the computer that the main method has been called.
-        metalDetectorReply = 0;
-        //Someday we can start the measurement on button press, but for now let's just allow 10 seconds and then measure.
+        int temp = 0;
         wait_ms(50);
-        
-        //Get a measurement from the metal detector.
-       /* for(int count = 0; count < 10; count++){
-        
-        metalDetectorReply += detectMetal();    
-        wait_ms(10);
-        }
-        metalDetectorReply /= 10; 
-        if(metalDetectorReply > ceiling * 2){metalDetectorReply = basement;}*/
-        
-        metalDetectorReply += detectMetal();
-        
+        metalDetectorReply = detectMetal();
         outputToComputer.printf("Ceil: %d\r\n",ceiling);
         outputToComputer.printf("Base: %d\r\n",basement);
         outputToComputer.printf("Det: %d\r\n", metalDetectorReply);
         
          for (int i = 0; i < aray_size; i++){ 
          vals[i] = vals[i + 1];       // shifts the values to the left
-         temp += vals[i];             // averaves the past calNum times together to prevent noise
+         temp += vals[i];             // averages the past calNum times together to prevent noise
          } 
          vals[aray_size - 1] = metalDetectorReply;
           
         metalDetectorReply = temp / aray_size; 
        
-        outputToComputer.printf("avg: %d \r\n", metalDetectorReply);  
+        outputToComputer.printf("avg: %d \r\n\r\n", metalDetectorReply);  
        
         
         //outputToComputer.printf("Target: %f\r\n", ceiling *1.006);
@@ -712,15 +699,15 @@ int main() {
         wait(1);        
         int pictureFlag = 0; //picFlag disallows taking more than one picture
         setup();                    //sets up the camera and other things       
-        //calibrate();                //calibrates the metal detector
+        calibrate();                //calibrates the metal detector
         basementCeilingDifference = ceiling - basement;
         
-        testing = (cameraWithDotCounting());    
-                        sevenSeg(testing);
+        //testing = (cameraWithDotCounting());    
+          //              sevenSeg(testing);
         
         
        
-        /*while(1){
+        while(1){
             
             ultimateMetalDetectionFunction();
             
@@ -731,7 +718,7 @@ int main() {
                         sevenSeg(testing);}
                 } 
             
-        }*/
+        }
         
- serial.printf("%d/r/n", BLACK_WHITE_THRESHOLD);       
+ //serial.printf("%d/r/n", BLACK_WHITE_THRESHOLD);       
 }
