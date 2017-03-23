@@ -17,13 +17,21 @@ float gyroConvert = .978 * float(250)/(float(30500) * float(1000000.0));
 //when output range was 0.27
 //double FORWARD_DIST = 10.5;
 
-double FORWARD_DIST = 8; //Try 8.25 with caster
+double FORWARD_DIST = 12; //Try 8.25 with caster
+double BACKWARD_DIST = -12;
 float DRIVE_STRAIGHT = 1.1;
-float LEFT_TURN  = 75;
-float RIGHT_TURN = -75;//75 with caster wheel
-float FULL_TURN = 180;
+float LEFT_TURN  = 75;//72
+float RIGHT_TURN = -75;//-69
+float FULL_TURN = 154;
 
-double STOP_SPEED_THRESHOLD = 0.125;
+double STOP_SPEED_THRESHOLD = 0.2;
+
+//Make sure we stay at the setpoints for long enough
+long setpointTimerThreshold = 1000; //1 second
+long turnTimerStart, turnTimerElapsed;
+long driveTimerStart, driveTimerElapsed;
+bool driveInRange = false;
+bool turnInRange = false;
 
 //Make sure to only reset the gyro after turning
 int lastState = 0;
@@ -88,14 +96,14 @@ Servo arm;
 bool backwards = false;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
-float turnPID[3] = {0.625, 0.00, 0.000}; //P = 0.55 with less weight
-float distPID[3] = {0.3, 0.0002, 0.000}; 
+float turnPID[3] = {0.3, 0.0002, 0.0005}; 
+float distPID[3] = {0.25, 0.0002, 0.0006}; 
 
 PIDController turningPID(0, turnPID);
 PIDController distancePID(0, distPID);
 
 //************************GYRO BLOCK*******************************//
-double pollGyro(){
+double pollGyro(bool flag){
 	Wire.beginTransmission(MPU_addr);
 	Wire.write(71);  // starting with register 0x3B (ACCEL_XOUT_H)
 	Wire.endTransmission(false);
@@ -103,7 +111,7 @@ double pollGyro(){
 	gyro = (~((Wire.read()<<8 | Wire.read())-1));
 	//gyro = (((~(Wire.read()-1))<<8|(~(Wire.read()-1))));//*(250/32768));
 	
-	if(abs(gyro) < 10)
+	if(abs(gyro) < 10 && flag)
 	{
 		gyro = 0;
 	}
@@ -195,7 +203,7 @@ void tankSteer(float turn_power)
 		else if(targetYaw > 0)
 		{
 			right = -turn_power;
-			left = 0;
+			left = -0.1;//this isnt 0 because it cant turn in place on left turns for some reason
 		}
 		else
 		{
@@ -375,7 +383,7 @@ void goOneInch()
 	backwards = false;
 	isTurnInPlace = false;
 	
-	distance_target = 3;
+	distance_target = 3.5;//just changed this from 3
 	targetYaw = 0;
 }
 
@@ -384,7 +392,7 @@ void backOne()
 	backwards = true;
 	isTurnInPlace = false;
 	
-	distance_target = -FORWARD_DIST;
+	distance_target = BACKWARD_DIST;
 	targetYaw = 0;
 }
 
@@ -403,14 +411,14 @@ void backHalf()
 	backwards = true;
 	isTurnInPlace = false;
 	
-	distance_target = -6;
+	distance_target = -8;
 	targetYaw = 0;
 }
 
 void openCache()
 {
 	backwards = false;
-	distance_target = 0;
+	distance_target = .75; //Setup for the camera
 	targetYaw = 0;
 	isTurnInPlace = false;
 	
@@ -418,6 +426,7 @@ void openCache()
 	arm.write(45);//Angle to set the arm so that it hits the lid is 45?
 	delay(1000);
 	arm.write(0);
+	delay(250);
 }
 
 void camera()
@@ -458,82 +467,111 @@ void undoOneInch()
 bool mainControlLoop()
 {
 
-  //Update the yaw of the robot
-    //yaw += float((micros()-t)*(pollGyro()-6)/testing)*(250.0/32768.0);
-	yaw += float(((micros()-t)*(pollGyro()-calVal)))*gyroConvert;
+	//Update the yaw of the robot
+	yaw += float(((micros()-t)*(pollGyro(true)-calVal)))*gyroConvert;
     t = micros();
 	
-	//Serial.print(yaw);
-	//Serial.print("\t");
-	
-    //Serial.print(driveComplete);
-    //Serial.print("\n");
-    //Serial.println(turnComplete);
-
+	//Find the error between setpoint and current yaw
     gyro_error = (yaw + GYRO_OFFSET) - targetYaw;
-    //gyro_error = fmod((gyro_error + 180), 360.0) - 180;
+    
+	//Wrap the gyro to the bounds
     if(gyro_error > 180)
     {
-      gyro_error = -(360 - gyro_error); 
+		gyro_error = -(360 - gyro_error); 
     }
 	
-	//Serial.print(gyro_error);
-	//Serial.print("\t");
-	
 	//Get the output variables based on PID Control
+	//If normal driving operation is taking place
 	if(!isTurnInPlace)
 	{
-		X = distancePID.GetOutput(distance_target, distance); //Calculate the forward power of the motors
-		Y = turningPID.GetOutput(0, gyro_error) * (-1);
-		//Y = turningPID.GetOutput(0, (rightEncoderPos - leftEncoderPos)) * (-1);
+		//Calculate forward power based on encoders
+		X = distancePID.GetOutput(distance_target, distance); 
 		
-		//If the robot is within a half inch of distance target, stop
+		//Calculate turning power based on gyro error Note that the PID must be inverted in the current setup
+		Y = turningPID.GetOutput(0, gyro_error) * (-1);
+		
+		//If the robot is within a half inch of distance target and has slowed down
 		if(abs(distance - distance_target) < 0.5 && abs(X) < STOP_SPEED_THRESHOLD)
 		{
-			//X = 0;
-			driveComplete = true;
+			//If this is the first time being in range
+			if(!driveInRange)
+			{
+				//Start the timer
+				driveTimerStart = millis();
+				
+				//Set to true to keep timer reference point
+				driveInRange = true;
+			}
+			
+			//Calculate time elapsed while on target
+			driveTimerElapsed = millis() - driveTimerStart;
+			
+			//If we have been on target for a long enough amount of time, we have completed the drive
+			if(driveTimerElapsed > setpointTimerThreshold)
+			{
+				driveComplete = true;
+			}
 		}
+		//If the robot is outside the set target
 		else
 		{
+			//Drive is not complete, we are not in range, reset the timer
 			driveComplete = false;
+			driveInRange = false;
+			driveTimerStart = millis();
 		}
 	}
 	else
 	{
+		//Calculate the turning power of the motors
 		Y = turningPID.GetOutput(0, gyro_error) * (-1) * 0.8;
+		
+		//Since we are turning "in place", we dont care about encoders
 		driveComplete = true;
+		
+		//Only turn, no forward motion
 		X = 0;
 	}
 	
-	
-	 //Calculate the turning power of the motors
-	//Y = turningPID.GetOutput(0, gyro_error) * (-1);
-	
-	//Don't output if the output won't move the robot (save power)
-	//X = filter(X);
-	//Y = filter(Y);
-	
-	if(((abs(gyro_error) < 0.25 && isTurnInPlace) || (abs(gyro_error) < 0.5 && !isTurnInPlace)) && abs(Y) < STOP_SPEED_THRESHOLD)
+	//If the gyro error is low enough (dependent on driving forward or turning in place), and the robot is moving slow enough
+	if(((abs(gyro_error) < 1.0 && isTurnInPlace) || (abs(gyro_error) < 1.0 && !isTurnInPlace)) && abs(Y) < STOP_SPEED_THRESHOLD)
 	{
-		//Y = 0;
-		turnComplete = true;
-		//Serial.println("Turn Complete.");
+		//If this is the first time we have been at the angle goal, reset the timer
+		if(!turnInRange)
+		{
+			turnTimerStart = millis();
+			turnInRange = true;
+		}
+		
+		//Calculate how long we have been at the target
+		turnTimerElapsed = millis() - turnTimerStart;
+		
+		//If we have been at the target long enough, the turn is complete
+		if(turnTimerElapsed > setpointTimerThreshold)
+		{
+			turnComplete = true;
+		}
 	}
 	else
 	{
+		//Turn is incomplete, not in range, and reset the timer
 		turnComplete = false;
+		turnInRange = false;
+		turnTimerStart = millis();
 	}
 	
-	
+	//If the root is not turning in place, use the regular driving mode
 	if(!isTurnInPlace)
 	{
 		arcadeDrive(X,Y);
 	}
+	//Otherwise use tank steer to turn and move forwards since we cannot perform a legit 0 point turn
 	else
 	{
 		tankSteer(Y);
 	}
 	
+	//Let the main loop know if the motion has completed or not
 	return driveComplete && turnComplete;
 	
 }
@@ -651,7 +689,7 @@ void setup() //Initilizes some pins
     pinMode(left_in_2, OUTPUT);
 	
 	//PID Initialization
-	distancePID.SetOutputRange(0.34, -0.34);
+	distancePID.SetOutputRange(0.3, -0.3);
 	turningPID.SetOutputRange(0.5, -0.5);
 	
 	//Encoder
@@ -682,7 +720,8 @@ void setup() //Initilizes some pins
 	
 	for(int count = 0; count < 100; count++)
 	{
-        calVal += pollGyro();
+		Serial.println(pollGyro(false));
+        calVal += pollGyro(false);
         delayMicroseconds(10);
     }
     calVal = calVal/float(100);
@@ -730,9 +769,6 @@ void loop() {
     else
 	{
 		//note bot will iterate very quickly through states if it does not receive a proper state and enter the MCU function as currently coded
-
-		//Serial.println(yaw);
-		
 		//Execute motion based on command, check for completion
 		isMotionFinished = mainControlLoop();
 
