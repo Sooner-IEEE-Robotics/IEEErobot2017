@@ -12,7 +12,7 @@ int indicator = 13;
 int stateTest[6] = {1,2,1,3,1,4};    //test array for various states, bot will iterate through these states 
 
 //Metal Detector
-int metalDetectorPin = 4;
+int metalDetectorPin = 3;
 
 //IR Sensor (Obstacle Detection)
 int sharpSensorPin = A0; //This is an analog sensor
@@ -138,6 +138,8 @@ void getPath(int top, int bottom, int left, int right, int direction)
 			if(leftEdge == 2)
 			{
 				googleMaps.push(1);
+				googleMaps.push(1);
+				googleMaps.push(7);
 				googleMaps.push(7);
 			}
 			googleMaps.push(6); //Go an inch for tankSteer
@@ -438,7 +440,12 @@ void setupPartOne()
 	mapQuest.push(7);
 	mapQuest.push(6);
 	mapQuest.push(2);
-	mapQuest.push(1);
+	//Instead of going too far forward, inch forward and back
+	mapQuest.push(6);
+	mapQuest.push(5); //Enter cache sequence
+	mapQuest.push(7); //Back off the suspected cache
+	mapQuest.push(5);
+	//mapQuest.push(1);
 	//mapQuest.push(6);
 	//mapQuest.push(2);
 }
@@ -463,12 +470,11 @@ void setupPartOne()
 */
 void setupPartTwo()
 {
-	mapQuest.push(7);//Back
+	//mapQuest.push(7);//Back
 	mapQuest.push(5); //Enter cache mode
 	//mapQuest.push(2); //Undo left
-	mapQuest.push(1);
+	mapQuest.push(1);//Go forward a short distance
 	mapQuest.push(3);//Arm
-	//mapQuest.push(1);
 	mapQuest.push(4);//Camera
 	mapQuest.push(6);
 	mapQuest.push(5);//Exit cache mode
@@ -481,7 +487,8 @@ void setupPartTwo()
 //Escape if there is no Cache
 void escapeCacheSequence()
 {
-	mapQuest.push(7);//Back off the fake cache
+	//mapQuest.push(7);//Back off the fake cache
+	mapQuest.push(6); //inch forward so we end up ok when we undo the turn
 	mapQuest.push(5);
 	mapQuest.push(2);//Undo left turn
 	mapQuest.push(7);//Undo inch forward
@@ -524,10 +531,17 @@ void setup()
 	initBoard();
 	
 	//make a zig zag pattern to get to the middle 5x5 bottom left corner square, facing north
+	/*
 	googleMaps.push(6);
 	googleMaps.push(3);
 	//googleMaps.push(6);
 	googleMaps.push(2);
+	*/
+	
+	//Take the Backwards L
+	googleMaps.push(6);
+	googleMaps.push(2);
+	googleMaps.push(1);
 	
 	//I know this looks useless but keep it this way because it makes the path work
 	CURRENT_COL = 1;
@@ -539,14 +553,16 @@ void setup()
 	
 	//Serial.println("Route Calculated");
 	Serial.println(googleMaps.count());
+	printPath();
 	
 	//Reset the coordinates back to the real coordinates
 	CURRENT_COL = 0;
 	CURRENT_ROW = 6;
+	currentOrientation = 1; //Reset this to east because we are actually facing that way.
 	
 	//Show robot ready light
 	//scm.setPixel(6, 0, 63, 63, 63); 
-	scm.setPixelBlue(6,0);
+	//scm.setPixelRed(6,0);
 		
 	delay(10000);
 }
@@ -577,7 +593,7 @@ void loop()
 			
 			//Update the colorduino to show the main tunnel
 			scm.setPixelRed(CURRENT_ROW, CURRENT_COL);
-			
+			/*
 			if(cachesFound < 2)
 			{
 				//We only want to search for caches if they have not been found on this edge
@@ -587,7 +603,7 @@ void loop()
 					setupPartOne();
 				}
 			}
-			
+			*/
 		}
 		else if(findingCache && !fakeCache && mapQuest.count() == 0 && digitalRead(metalDetectorPin) == HIGH && !onPartTwo)//If we have found a cache
 		{

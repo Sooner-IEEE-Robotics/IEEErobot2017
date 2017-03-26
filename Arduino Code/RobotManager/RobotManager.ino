@@ -14,14 +14,11 @@ float calVal;
 
 float gyroConvert = .978 * float(250)/(float(30500) * float(1000000.0));
 
-//when output range was 0.27
-//double FORWARD_DIST = 10.5;
-
-double FORWARD_DIST = 12; //Try 8.25 with caster
-double BACKWARD_DIST = -12;
-float DRIVE_STRAIGHT = 1.1;
-float LEFT_TURN  = 75;//72
-float RIGHT_TURN = -75;//-69
+double FORWARD_DIST = 11.25; 
+double BACKWARD_DIST = -11.25;
+float DRIVE_STRAIGHT = 0;//1.1
+float LEFT_TURN  = 74.25;
+float RIGHT_TURN = -73.5;
 float FULL_TURN = 154;
 
 double STOP_SPEED_THRESHOLD = 0.2;
@@ -32,6 +29,10 @@ long turnTimerStart, turnTimerElapsed;
 long driveTimerStart, driveTimerElapsed;
 bool driveInRange = false;
 bool turnInRange = false;
+
+//Max time as a last ditch effort to be good
+long maxTime = 3000;
+long maxTimerStart, maxTimerElapsed;
 
 //Make sure to only reset the gyro after turning
 int lastState = 0;
@@ -96,8 +97,8 @@ Servo arm;
 bool backwards = false;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
-float turnPID[3] = {0.3, 0.0002, 0.0005}; 
-float distPID[3] = {0.25, 0.0002, 0.0006}; 
+float turnPID[3] = {0.15, 0.0001, 0.001}; 
+float distPID[3] = {0.22, 0.000, 0.001}; 
 
 PIDController turningPID(0, turnPID);
 PIDController distancePID(0, distPID);
@@ -185,7 +186,7 @@ void tankSteer(float turn_power)
 		else if(targetYaw < 0)
 		{
 			right = -turn_power;
-			left = 0;
+			left = 0.1;//this isnt 0 because it cant turn in place on backwards left turns for some reason
 		}
 		else
 		{
@@ -383,7 +384,7 @@ void goOneInch()
 	backwards = false;
 	isTurnInPlace = false;
 	
-	distance_target = 3.5;//just changed this from 3
+	distance_target = 3.25;//just changed this from 3
 	targetYaw = 0;
 }
 
@@ -457,7 +458,7 @@ void undoOneInch()
 	backwards = true;
 	isTurnInPlace = false;
 	
-	distance_target = -3;
+	distance_target = -3.5;
 	targetYaw = 0;
 }
 
@@ -571,6 +572,14 @@ bool mainControlLoop()
 		tankSteer(Y);
 	}
 	
+	maxTimerElapsed = millis() - maxTimerStart;
+	
+	if(maxTimerElapsed > maxTime)
+	{
+		driveComplete = true;
+		turnComplete = true;
+	}
+	
 	//Let the main loop know if the motion has completed or not
 	return driveComplete && turnComplete;
 	
@@ -589,6 +598,8 @@ void state_mgr(int instructions){
 		resetEncoders();
 		resetGyro();
 		
+		//For max time timer
+		maxTimerStart = millis();
 		
 		Serial.println(instructions);
         if(isCacheCommands)
@@ -689,7 +700,7 @@ void setup() //Initilizes some pins
     pinMode(left_in_2, OUTPUT);
 	
 	//PID Initialization
-	distancePID.SetOutputRange(0.3, -0.3);
+	distancePID.SetOutputRange(0.29, -0.29);
 	turningPID.SetOutputRange(0.5, -0.5);
 	
 	//Encoder
@@ -758,7 +769,7 @@ void loop() {
 			
 			
 			//***********Whatever code can be relatively safely placed anywhere between here and state_mgr without significantly affecting the bot's operation
-			delay(4000); //Stops and waits for a bit
+			delay(3000); //Stops and waits for a bit
 			
 			
 			state_mgr(Et + 2*Ft + 4*Gt);    //sends the proper state, avoids use of bitshifting due to bugginess; state mgr will reset moving to HIGH when it is finished with its task
