@@ -14,11 +14,11 @@ float calVal;
 
 float gyroConvert = .978 * float(250)/(float(30500) * float(1000000.0));
 
-double FORWARD_DIST = 11.25; 
-double BACKWARD_DIST = -11.25;
+double FORWARD_DIST = 11.6; 
+double BACKWARD_DIST = -11.3;
 float DRIVE_STRAIGHT = 0;//1.1
-float LEFT_TURN  = 74.25;
-float RIGHT_TURN = -73.5;
+float LEFT_TURN  = 73.5;
+float RIGHT_TURN = -72.75;
 float FULL_TURN = 154;
 
 double STOP_SPEED_THRESHOLD = 0.2;
@@ -97,8 +97,8 @@ Servo arm;
 bool backwards = false;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
-float turnPID[3] = {0.15, 0.0001, 0.001}; 
-float distPID[3] = {0.22, 0.000, 0.001}; 
+float turnPID[3] = {0.14, 0.0001, 0.004}; 
+float distPID[3] = {0.175, 0.000, 0.003}; 
 
 PIDController turningPID(0, turnPID);
 PIDController distancePID(0, distPID);
@@ -384,7 +384,7 @@ void goOneInch()
 	backwards = false;
 	isTurnInPlace = false;
 	
-	distance_target = 3.25;//just changed this from 3
+	distance_target = 3.4;//just changed this from 3
 	targetYaw = 0;
 }
 
@@ -458,7 +458,7 @@ void undoOneInch()
 	backwards = true;
 	isTurnInPlace = false;
 	
-	distance_target = -3.5;
+	distance_target = -3.45;
 	targetYaw = 0;
 }
 

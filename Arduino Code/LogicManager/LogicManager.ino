@@ -199,6 +199,9 @@ void getPath(int top, int bottom, int left, int right, int direction)
 	googleMaps.push(7);
 	googleMaps.push(7);
 	
+	//Inch forward
+	//googleMaps.push(6);
+	
 	//Turn right
 	googleMaps.push(3);
 	
@@ -206,10 +209,14 @@ void getPath(int top, int bottom, int left, int right, int direction)
 	googleMaps.push(1);
 	googleMaps.push(1);
 	
+	//Inch forward
+	googleMaps.push(6);
+	
 	//Turn Right
 	googleMaps.push(3);
 	
 	//Forward
+	googleMaps.push(1);
 	googleMaps.push(1);
 	
 	//DONE!
