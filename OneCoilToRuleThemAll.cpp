@@ -4,7 +4,7 @@
 
 //Metal Detector Variables******************************************
 
-int calNum = 75;
+const int calNum = 50;
 
 int metalDetectorReply = 0;
 
@@ -16,7 +16,7 @@ int ceiling = 0;
 
 const int aray_size = calNum ;
 
-int vals[75]; // !!make this calNum size!!
+int vals[calNum]; // !!make this calNum size!!
 
 
 
@@ -1352,10 +1352,13 @@ void ultimateMetalDetectionFunction()
     wait_ms(50);
 
     metalDetectorReply = detectMetal();
+    if(metalDetectorReply > 2200)       //filters out moving noise
+    {metalDetectorReply = 1000;}
+    
 
     outputToComputer.printf("Ceil: %d\r\n",ceiling);
 
-    outputToComputer.printf("Base: %d\r\n",basement);
+    //outputToComputer.printf("Base: %d\r\n",basement);
 
     outputToComputer.printf("Det: %d\r\n", metalDetectorReply);
 
@@ -1379,7 +1382,7 @@ void ultimateMetalDetectionFunction()
 
     outputToComputer.printf("avg: %d \r\n\r\n", metalDetectorReply);
 
-
+    
 
 
 
@@ -1444,9 +1447,9 @@ int main()
 {
 
     wait(1);
-
+    int metalFlag = 0; //sets ceiling
     int pictureFlag = 0; //picFlag disallows taking more than one picture
-
+    int flagDisable = 0; //lets us turn turn off the initial metal ceiling setting
     setup();                    //sets up the camera and other things
 
     calibrate();                //calibrates the metal detector
@@ -1466,11 +1469,12 @@ int main()
 
 
     while(1) {
-
+        
 
 
         ultimateMetalDetectionFunction();
-
+        if((metalFlag < 100)&&(flagDisable == 0)){metalFlag++;}
+        else if(flagDisable == 0){ceiling = metalDetectorReply * 1.075; flagDisable = 1;}
 
 
         if(pictureTake == 1) {
