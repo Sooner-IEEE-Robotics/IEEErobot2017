@@ -767,10 +767,7 @@ void loop() {
 			Ft = digitalRead(F);
 			Gt = digitalRead(G);
 			
-			
 			//***********Whatever code can be relatively safely placed anywhere between here and state_mgr without significantly affecting the bot's operation
-			delay(3000); //Stops and waits for a bit
-			
 			
 			state_mgr(Et + 2*Ft + 4*Gt);    //sends the proper state, avoids use of bitshifting due to bugginess; state mgr will reset moving to HIGH when it is finished with its task
 			

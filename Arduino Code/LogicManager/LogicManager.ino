@@ -11,6 +11,11 @@ int moving = 8;
 int indicator = 13;
 int stateTest[6] = {1,2,1,3,1,4};    //test array for various states, bot will iterate through these states 
 
+//the last step on the main route. 
+//All steps after this can be faster. 
+//Also, find the caches after this
+int SPIRAL_END_STEP_ID = 44;
+
 //Metal Detector
 int metalDetectorPin = 3;
 
@@ -210,7 +215,7 @@ void getPath(int top, int bottom, int left, int right, int direction)
 	googleMaps.push(1);
 	
 	//Inch forward
-	googleMaps.push(6);
+	//googleMaps.push(6);
 	
 	//Turn Right
 	googleMaps.push(3);
@@ -220,6 +225,137 @@ void getPath(int top, int bottom, int left, int right, int direction)
 	googleMaps.push(1);
 	
 	//DONE!
+}
+
+void figureOutWhereTheCachesAre()
+{
+	bool cache1_found = false, cache2_found = false;
+	int cache1_row, cache1_col;
+	int cache2_row, cache2_col;
+	
+	int row[2] = {1, 5, 1, 5};
+	for(int i = 0; i < 4; ++i)
+	{
+		for(int col = 2; col < 5; ++col)
+		{
+			int index;
+			//Translate the 1D array into 2D
+			if(i < 2)
+			{
+				index = (row[i]*7) + col;
+			}
+			else
+			{
+				index = (col*7) + row[i];
+			}
+			
+			//If a spot has metal, count neighbors
+			if(board[index] == 1)
+			{
+				int top, top_stats;
+				int bot, bot_stats;
+				int left, left_stats;
+				int right, right_stats;
+				
+				if(i < 2)
+				{
+					//Is the top neighbor metal?
+					top = ((row[i]-1)*7) + col;
+					top_stats = board[top];
+					
+					//Is the bottom neighbor metal?
+					bot = ((row[i]+1)*7) + col;
+					bot_stats = board[bot];
+					
+					//Is the left neighbor metal?
+					left = (row[i]*7) + col - 1;
+					left_stats = board[left];
+					
+					//Is the right neighbor metal?
+					right = (row[i]*7) + col + 1;
+					right_stats = board[right];
+				}
+				else
+				{
+					//Is the top neighbor metal?
+					top = ((col-1)*7) + row[i];
+					top_stats = board[top];
+					
+					//Is the bottom neighbor metal?
+					bot = ((col+1)*7) + row[i];
+					bot_stats = board[bot];
+					
+					//Is the left neighbor metal?
+					left = (col*7) + row[i] - 1;
+					left_stats = board[left];
+					
+					//Is the right neighbor metal?
+					right = (col*7) + row[i] + 1;
+					right_stats = board[right];
+				}
+				
+				//How many neighboring squares are metal?
+				int sum = top_stats + bot_stats + left_stats + right_stats;
+				
+				//If less than 2 neighbors have metal, this is probably a cache
+				if(sum < 2)
+				{
+					//If the first cache hasnt been found yet
+					if(!cache1_found)
+					{
+						if(i == 0)
+						{
+							cache1_row = row[i] - 1;
+							cache1_col = col;
+						}
+						else if(i == 1)
+						{
+							cache1_row = row[i] + 1;
+							cache1_col = col;
+						}
+						else if(i == 2)
+						{
+							cache1_row = row[i];
+							cache1_col = col - 1;
+						}
+						else if(i == 3)
+						{
+							cache1_row = row[i];
+							cache1_col = col + 1;
+						}
+						
+						scm.setPixelRed(cache1_row, cache1_col);
+					}
+					//If the second hasnt been found but the first has
+					else if(!cache2_found)
+					{
+						if(i == 0)
+						{
+							cache2_row = row[i] - 1;
+							cache2_col = col;
+						}
+						else if(i == 1)
+						{
+							cache2_row = row[i] + 1;
+							cache2_col = col;
+						}
+						else if(i == 2)
+						{
+							cache2_row = row[i];
+							cache2_col = col - 1;
+						}
+						else if(i == 3)
+						{
+							cache2_row = row[i];
+							cache2_col = col + 1;
+						}
+						
+						scm.setPixelRed(cache2_row, cache2_col);
+					}
+				}
+			}
+		}
+	}
 }
 
 void avoidObstacle(int obstacle_location)
@@ -569,9 +705,11 @@ void setup()
 	
 	//Show robot ready light
 	//scm.setPixel(6, 0, 63, 63, 63); 
-	//scm.setPixelRed(6,0);
-		
+	
+	//Try multiple times to set the A7 led
+	scm.setPixelYellow(6,0);	
 	delay(10000);
+	scm.setPixelYellow(6,0);
 }
 
 void loop() 
@@ -588,6 +726,9 @@ void loop()
 		{ 
 			// Do whatever here while we wait 
 		}
+		
+		 //Stops and waits for a bit
+		delay(3000);
 		
 		//Default to being allowed to move forward with the commands
 		commandApproved = true;
