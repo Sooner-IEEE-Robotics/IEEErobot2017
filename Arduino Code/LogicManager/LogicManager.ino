@@ -11,13 +11,17 @@ int moving = 8;
 int indicator = 13;
 int stateTest[6] = {1,2,1,3,1,4};    //test array for various states, bot will iterate through these states 
 
+int goButtonPin = 2;
+bool started = false;
+
 //the last step on the main route. 
 //All steps after this can be faster. 
 //Also, find the caches after this
 int SPIRAL_END_STEP_ID = 44;
+int commandIndex = 0;
 
 //Metal Detector
-int metalDetectorPin = 3;
+int metalDetectorPin = 13;
 
 //IR Sensor (Obstacle Detection)
 int sharpSensorPin = A0; //This is an analog sensor
@@ -233,7 +237,7 @@ void figureOutWhereTheCachesAre()
 	int cache1_row, cache1_col;
 	int cache2_row, cache2_col;
 	
-	int row[2] = {1, 5, 1, 5};
+	int row[4] = {1, 5, 1, 5};
 	for(int i = 0; i < 4; ++i)
 	{
 		for(int col = 2; col < 5; ++col)
@@ -642,10 +646,11 @@ void escapeCacheSequence()
 //***********END CACHE SEQUENCING*******************************//
 
 void setup() 
-{
-	//int startSquare = scm.setPixelYellow(0, 6);
-	
-	int startSquare = scm.setPixelRed(2, 2);
+{	
+	//Go Button
+	pinMode(goButtonPin, INPUT);
+	//Pull down resistor to be safe
+	digitalWrite(goButtonPin, LOW);
 	
 	//Comms pins
 	pinMode(E, OUTPUT);//bit 0        //output pins for the states
@@ -667,19 +672,9 @@ void setup()
 	pinMode(sharpSensorPin, INPUT);
 	
 	Serial.begin(9600);
-	Serial.println(startSquare);
-	
 	Serial.println("Calculating Route...");
 	
 	initBoard();
-	
-	//make a zig zag pattern to get to the middle 5x5 bottom left corner square, facing north
-	/*
-	googleMaps.push(6);
-	googleMaps.push(3);
-	//googleMaps.push(6);
-	googleMaps.push(2);
-	*/
 	
 	//Take the Backwards L
 	googleMaps.push(6);
@@ -703,13 +698,17 @@ void setup()
 	CURRENT_ROW = 6;
 	currentOrientation = 1; //Reset this to east because we are actually facing that way.
 	
-	//Show robot ready light
-	//scm.setPixel(6, 0, 63, 63, 63); 
-	
 	//Try multiple times to set the A7 led
 	scm.setPixelYellow(6,0);	
 	delay(10000);
 	scm.setPixelYellow(6,0);
+	
+	while(digitalRead(goButtonPin) == LOW)
+	{
+		scm.setPixelYellow(6,0);
+		delay(50);
+	}
+	delay(1000);
 }
 
 void loop() 
@@ -719,6 +718,8 @@ void loop()
 	bool commandApproved = true;
 	int obstacleLocation;
 	
+	//Run the program to completion regardless of the go button status
+	
 	//Run code repeatedly based on what Google Maps tells us to do.
 	while(googleMaps.count() > 0)
 	{
@@ -727,7 +728,7 @@ void loop()
 			// Do whatever here while we wait 
 		}
 		
-		 //Stops and waits for a bit
+		//Stops and waits for a bit
 		delay(3000);
 		
 		//Default to being allowed to move forward with the commands
@@ -741,17 +742,6 @@ void loop()
 			
 			//Update the colorduino to show the main tunnel
 			scm.setPixelRed(CURRENT_ROW, CURRENT_COL);
-			/*
-			if(cachesFound < 2)
-			{
-				//We only want to search for caches if they have not been found on this edge
-				if(((currentOrientation == 0 && !foundLeftCache) || (currentOrientation == 1 && !foundTopCache) || (currentOrientation == 2 && !foundRightCache) || (currentOrientation == 3 && !foundBottomCache)) && (CURRENT_COL == 1 || CURRENT_COL == 5 || CURRENT_ROW == 1 || CURRENT_ROW == 5) && !(CURRENT_COL == 0 || CURRENT_COL == 6 || CURRENT_ROW == 0 || CURRENT_ROW == 6))
-				{
-					findingCache = true;
-					setupPartOne();
-				}
-			}
-			*/
 		}
 		else if(findingCache && !fakeCache && mapQuest.count() == 0 && digitalRead(metalDetectorPin) == HIGH && !onPartTwo)//If we have found a cache
 		{
@@ -849,6 +839,7 @@ void loop()
 		if(!findingCache)
 		{
 			command = googleMaps.pop(); //Gets the next command from the queue.
+			commandIndex++;
 			
 			//If the obstacle has been avoided, but we have not explored behind the obstacles enough,
 			//generate more waypoints so the program does not end prematurely.
@@ -863,24 +854,11 @@ void loop()
 				getPath(MIN_ROW, MAX_ROW, MIN_COL, MAX_COL, currentOrientation);
 			}
 		}
-		/*
-		else
-		{
-			while(!googleMaps.isEmpty())
-			{
-				googleMaps.pop();
-			}
-			
-			avoidObstacle(obstacleLocation);
-			
-			command = googleMaps.pop();
-		}
-		*/
 		
 		//Bitshifting is OK here for some reason
 		digitalWrite(E, command & 1); 
 		digitalWrite(F, command>>1 & 1);
-        digitalWrite(G, command>>2 & 1);
+		digitalWrite(G, command>>2 & 1);
 		
 		//Wait for the lines to actually be asserted with digitalWrite
 		delay(10);
@@ -895,6 +873,11 @@ void loop()
 		
 		//Wait for the instruct line to switch to the correct value
 		delay(10);
+		
+		if(commandIndex > SPIRAL_END_STEP_ID)
+		{
+			figureOutWhereTheCachesAre();
+		}
 		
 		//Update command for future calculations
 		if(!findingCache)

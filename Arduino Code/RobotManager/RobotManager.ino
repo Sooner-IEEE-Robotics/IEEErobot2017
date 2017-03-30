@@ -14,17 +14,17 @@ float calVal;
 
 float gyroConvert = .978 * float(250)/(float(30500) * float(1000000.0));
 
-double FORWARD_DIST = 11.6; 
+double FORWARD_DIST = 11.4; 
 double BACKWARD_DIST = -11.3;
 float DRIVE_STRAIGHT = 0;//1.1
 float LEFT_TURN  = 73.5;
-float RIGHT_TURN = -72.75;
+float RIGHT_TURN = -72.35;
 float FULL_TURN = 154;
 
 double STOP_SPEED_THRESHOLD = 0.2;
 
 //Make sure we stay at the setpoints for long enough
-long setpointTimerThreshold = 1000; //1 second
+long setpointTimerThreshold = 750; //1 second
 long turnTimerStart, turnTimerElapsed;
 long driveTimerStart, driveTimerElapsed;
 bool driveInRange = false;
@@ -98,7 +98,7 @@ bool backwards = false;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
 float turnPID[3] = {0.14, 0.0001, 0.004}; 
-float distPID[3] = {0.175, 0.000, 0.003}; 
+float distPID[3] = {0.17, 0.000, 0.003}; 
 
 PIDController turningPID(0, turnPID);
 PIDController distancePID(0, distPID);
