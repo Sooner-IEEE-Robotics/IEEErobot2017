@@ -1,30 +1,19 @@
 #include <QueueList.h>
-#include <StackList.h>
 #include "SoonerColorduinoMaster.h"
 
-//Threshold to determine if there is an obstacle or not
-#define OBSTACLE_THRESHOLD 100
+//Decide which endgame to pursue. 0 = None, 1 = A7, 2 = Cache, 3 = Cache, unless no caches, then do A7
+#define ENDGAME 0
 
 //Message System (OUT)
 int E = 9, F = 10, G = 11, instruct = 12;
 int moving = 8;
 int indicator = 13;
-int stateTest[6] = {1,2,1,3,1,4};    //test array for various states, bot will iterate through these states 
 
+//Go Button
 int goButtonPin = 2;
-bool started = false;
-
-//the last step on the main route. 
-//All steps after this can be faster. 
-//Also, find the caches after this
-int SPIRAL_END_STEP_ID = 44;
-int commandIndex = 0;
 
 //Metal Detector
 int metalDetectorPin = 13;
-
-//IR Sensor (Obstacle Detection)
-int sharpSensorPin = A0; //This is an analog sensor
 
 //Colorduino
 SoonerColorduinoMaster scm;
@@ -41,36 +30,21 @@ bool activelyAvoidingObstacles = false;
 //Position of the robot
 int CURRENT_ROW = 6, CURRENT_COL = 0;
 
-//Cache finding variables
-bool findingCache = false, fakeCache = false;
-int cachesFound = 0;
-bool foundTopCache = false;
-bool foundBottomCache = false;
-bool foundLeftCache = false;
-bool foundRightCache = false;
-bool onPartTwo = false;
-
 //Edge Management variables used to constrain new spirals
-
 //If we are doing the 7x7 outer
 //int MIN_COL = 1, MAX_COL = 6, MIN_ROW = 0, MAX_ROW = 6;
 
 //If we are doing the 5x5 pattern
 int MIN_COL = 2, MAX_COL = 5, MIN_ROW = 1, MAX_ROW = 5;
 
-
 //Directions to follow in order to win
 QueueList<byte> googleMaps;
 
-//cache instructions
+//Finishing Instructions
 QueueList<byte> mapQuest;
-
-//Obstacle Avoidance Stack of endpoints
-StackList<int> endPoints;
 
 //Board, as a 1D array
 //(i/7) = Row, (i%7) = Column
-int board[49];
 /*
 0 = Unexplored
 1 = Main Tunnel
@@ -79,6 +53,12 @@ int board[49];
 4 = Start
 5 = Obstacle
 */
+int board[49];
+
+//Variables to find the caches
+bool cache1_found = false, cache2_found = false;
+int cache1_row, cache1_col;
+int cache2_row, cache2_col;
 
 void initBoard()
 {
@@ -231,11 +211,10 @@ void getPath(int top, int bottom, int left, int right, int direction)
 	//DONE!
 }
 
+//Infer where the caches are based on the mapping of the inner squares
 void figureOutWhereTheCachesAre()
 {
-	bool cache1_found = false, cache2_found = false;
-	int cache1_row, cache1_col;
-	int cache2_row, cache2_col;
+	
 	
 	int row[4] = {1, 5, 1, 5};
 	for(int i = 0; i < 4; ++i)
@@ -362,131 +341,72 @@ void figureOutWhereTheCachesAre()
 	}
 }
 
-void avoidObstacle(int obstacle_location)
+//Go back to start
+void goBackToStart()
 {
-	updateBounds();
+	//3 back ups
+	mapQuest.push(7);
+	mapQuest.push(7);
+	mapQuest.push(7);
 	
-	activelyAvoidingObstacles = true;
+	//Inch forward
+	//mapQuest.push(6);
 	
-	int obstacle_row = obstacle_location/7;
-	int obstacle_col = obstacle_location%7;
+	//Turn right
+	mapQuest.push(3);
 	
-	int targetRow, targetCol;
+	//Drive forward 2 times
+	mapQuest.push(1);
+	mapQuest.push(1);
 	
-	if(currentOrientation == 0)
-	{
-		targetRow = obstacle_row - 1;
-	}
-	else if(currentOrientation == 2)
-	{
-		targetRow = obstacle_row + 1;
-	}
+	//Inch forward
+	//mapQuest.push(6);
 	
-	if(currentOrientation == 1)
-	{
-		targetCol = obstacle_col + 1;
-	}
-	else if(currentOrientation == 3)
-	{
-		targetCol = obstacle_col - 1;
-	}
+	//Turn Right
+	mapQuest.push(3);
 	
-	bool borderSecurity = true;
-	
-	if(targetRow > MAX_ROW)
-	{
-		targetRow = MAX_ROW;
-		targetCol++;
-		borderSecurity = false;
-	}
-	else if(targetRow < MIN_ROW)
-	{
-		targetRow = MIN_ROW;
-		targetCol--;
-		borderSecurity = false;
-	}
-	
-	if(targetCol > MAX_COL)
-	{
-		targetCol = MAX_COL;
-		targetRow--;
-		borderSecurity = false;
-	}
-	else if(targetCol < MIN_COL)
-	{
-		targetCol = MIN_COL;
-		targetRow++;
-		borderSecurity = false;
-	}
-	
-	int targetLocation = (targetRow*7) + targetCol;
-
-	endPoints.push(targetLocation);
-	
-	googleMaps.push(2); //Left
-	googleMaps.push(1); //Forward
-	googleMaps.push(3); //Right
-	
-	if(borderSecurity) //Normal Case
-	{
-		googleMaps.push(1);
-		googleMaps.push(1);
-		googleMaps.push(3);
-		googleMaps.push(1);
-	}
-	else //We are on a corner or edge. Only go forward 1 and we are at an O
-	{
-		googleMaps.push(1);
-	}
-	
+	//Forward
+	mapQuest.push(1);
+	mapQuest.push(1);
 }
 
-void findTheOs()
+//Go to a cache and open it at the end of the routine
+void travelToCache()
 {
-	int currentLocation = (CURRENT_ROW*7) + CURRENT_COL;
+	bool goodCacheFound = false;
+	int bestR, bestC;
 	
-	int nextO = endPoints.pop(), lastO = -1;
+	int min_col_diff = 8;
 	
-	int lastRow = CURRENT_ROW;
-	int lastCol = CURRENT_COL;
-	
-	int rDiff, cDiff;
-	
-	while(!endPoints.isEmpty())
+	if(cache1_found)
 	{
+		int col_diff = cache1_col - CURRENT_COL;
 		
-		if(nextO == lastO || nextO == currentLocation)
-		{
-			nextO = endPoints.pop();
-		}
-		
-		int r = nextO/7;
-		int c = nextO%7;
-		
-		rDiff = lastRow - r;
-		cDiff = lastCol - c;
-		
-		
-		for(int i = 0; i < abs(cDiff); ++i)
-		{
-			googleMaps.push(1);
-		}
-		
-		if(abs(rDiff) > 0)
-		{
-			googleMaps.push(3);
+		bestR = cache1_row;
+		bestC = cache1_col;
 			
-			for(int i = 0; i < abs(rDiff); ++i)
+		if(col_diff > 0)
+		{
+			min_col_diff = col_diff;
+			goodCacheFound = true;
+		}
+	}
+	
+	if(cache2_found)
+	{
+		int col_diff = cache2_col - CURRENT_COL;
+		
+		if(col_diff > 0)
+		{
+			if(col_diff < min_col_diff)
 			{
-				googleMaps.push(1);
+				bestR = cache1_row;
+				bestC = cache1_col;
 			}
 		}
-		
-		
-		lastO = nextO;
-		lastRow = nextO/7;
-		lastCol = nextO%7;
 	}
+	
+	//Calculate path
 }
 
 void printPath()
@@ -571,80 +491,6 @@ void updateBounds()
 }
 //***********************END EDGE MANAGEMENT********************//
 
-//***********CACHE SEQUENCING*******************************//
-/*
-//Part 1
-1. Back up
-2. inch forward
-3. Left
-4. inch forward
-5. Left
-6. Check for Metal
-7. If Metal = True -> Part 2, else Part 3
-*/
-void setupPartOne()
-{
-	mapQuest.push(7);
-	mapQuest.push(6);
-	mapQuest.push(2);
-	//Instead of going too far forward, inch forward and back
-	mapQuest.push(6);
-	mapQuest.push(5); //Enter cache sequence
-	mapQuest.push(7); //Back off the suspected cache
-	mapQuest.push(5);
-	//mapQuest.push(1);
-	//mapQuest.push(6);
-	//mapQuest.push(2);
-}
-
-/**
-//*********CACHE CLOSED LOOP**********
-1. inch forward
-2. Arm (up and down)
-3. inch forward
-4. Take picture
-5. Back up
-*/
-
-/*
-//Part 2
-1. Back up //1. Undo Left Turn
-2-6. Cache Closed Loop
-7. Back up
-8. inch forward
-9. Right
-10. Motion Complete!
-*/
-void setupPartTwo()
-{
-	//mapQuest.push(7);//Back
-	mapQuest.push(5); //Enter cache mode
-	//mapQuest.push(2); //Undo left
-	mapQuest.push(1);//Go forward a short distance
-	mapQuest.push(3);//Arm
-	mapQuest.push(4);//Camera
-	mapQuest.push(6);
-	mapQuest.push(5);//Exit cache mode
-	mapQuest.push(7);//Back
-	mapQuest.push(6);
-	mapQuest.push(3);//Right
-}
-
-
-//Escape if there is no Cache
-void escapeCacheSequence()
-{
-	//mapQuest.push(7);//Back off the fake cache
-	mapQuest.push(6); //inch forward so we end up ok when we undo the turn
-	mapQuest.push(5);
-	mapQuest.push(2);//Undo left turn
-	mapQuest.push(7);//Undo inch forward
-	mapQuest.push(5);//Exit cache sequence
-	mapQuest.push(1);//Back to starting position
-}
-
-//***********END CACHE SEQUENCING*******************************//
-
 void setup() 
 {	
 	//Go Button
@@ -667,9 +513,6 @@ void setup()
 	
 	//Metal Detection
 	pinMode(metalDetectorPin, INPUT);
-	
-	//Obstacle Detection
-	pinMode(sharpSensorPin, INPUT);
 	
 	Serial.begin(9600);
 	Serial.println("Calculating Route...");
@@ -715,10 +558,6 @@ void loop()
 {
 	//The command to send to the robot
 	int command = 0;
-	bool commandApproved = true;
-	int obstacleLocation;
-	
-	//Run the program to completion regardless of the go button status
 	
 	//Run code repeatedly based on what Google Maps tells us to do.
 	while(googleMaps.count() > 0)
@@ -730,12 +569,9 @@ void loop()
 		
 		//Stops and waits for a bit
 		delay(3000);
-		
-		//Default to being allowed to move forward with the commands
-		commandApproved = true;
-		
+
 		//*****Go through the checklist of things to do before actually moving.****//
-		if(!findingCache && digitalRead(metalDetectorPin) == HIGH && !(CURRENT_COL == 0 && CURRENT_ROW == 6))//If metal is found on the regular route, update map and display to colorduino. Also, begin cache sequence
+		if(digitalRead(metalDetectorPin) == HIGH && !(CURRENT_COL == 0 && CURRENT_ROW == 6))//If metal is found on the regular route, update map and display to colorduino.
 		{
 			int i = (CURRENT_ROW*7) + CURRENT_COL;
 			board[i] = 1;
@@ -743,119 +579,11 @@ void loop()
 			//Update the colorduino to show the main tunnel
 			scm.setPixelRed(CURRENT_ROW, CURRENT_COL);
 		}
-		else if(findingCache && !fakeCache && mapQuest.count() == 0 && digitalRead(metalDetectorPin) == HIGH && !onPartTwo)//If we have found a cache
-		{
-			if(currentOrientation == 0)
-			{
-				foundLeftCache = true;
-			}
-			else if(currentOrientation == 1)
-			{
-				foundTopCache = true;
-			}
-			else if(currentOrientation == 2)
-			{
-				foundRightCache = true;
-			}
-			else if(currentOrientation == 3)
-			{
-				foundBottomCache = true;
-			}
-			
-			//If we still have caches to find
-			if(cachesFound < 2)
-			{
-				//If we have not found a cache before, we should try to take a picture
-				if(cachesFound < 1)
-				{
-					setupPartTwo();
-					onPartTwo = true;
-				}
-				//Otherwise we should escape the cache sequence like it was never there
-				else
-				{
-					escapeCacheSequence();
-					onPartTwo = true;
-				}
-			}
-			
-			cachesFound++;
-			
-			int i;
-			
-			if(currentOrientation == 0)//If we were facing north, left column
-			{
-				i = (CURRENT_ROW*7) + (CURRENT_COL-1);
-				board[i] = 1;
-				
-				scm.setPixelRed(CURRENT_ROW, CURRENT_COL-1);
-			}
-			else if(currentOrientation == 1) //If we are facing east, up one row
-			{
-				i = ((CURRENT_ROW-1)*7) + (CURRENT_COL);
-				board[i] = 1;
-				
-				scm.setPixelRed(CURRENT_ROW-1, CURRENT_COL);
-			}
-			else if(currentOrientation == 2)//If we are facing south, right one column
-			{
-				i = (CURRENT_ROW*7) + (CURRENT_COL+1);
-				board[i] = 1;
-				
-				scm.setPixelRed(CURRENT_ROW, CURRENT_COL+1);
-			}
-			else if(currentOrientation == 3)//If we are facing west, down one row
-			{
-				i = ((CURRENT_ROW+1)*7) + (CURRENT_COL);
-				board[i] = 1;
-				
-				scm.setPixelRed(CURRENT_ROW+1, CURRENT_COL);
-			}
-						
-		}
-		else if(findingCache && !fakeCache && mapQuest.count() == 0 && digitalRead(metalDetectorPin) == LOW)//We have determined that this is a fake cache
-		{
-			escapeCacheSequence();
-			fakeCache = true;
-		}
 		
+		//Gets the next command from the queue.
+		command = googleMaps.pop();			
 		
-		//*****Determine what type of plan we are following******//
-		
-		if(findingCache)
-		{
-			if(mapQuest.count() == 0)
-			{
-				findingCache = false;
-				fakeCache = false;
-				onPartTwo = false;
-			}
-			else
-			{
-				command = mapQuest.pop();
-			}
-		}
-		
-		if(!findingCache)
-		{
-			command = googleMaps.pop(); //Gets the next command from the queue.
-			commandIndex++;
-			
-			//If the obstacle has been avoided, but we have not explored behind the obstacles enough,
-			//generate more waypoints so the program does not end prematurely.
-			if(activelyAvoidingObstacles && googleMaps.isEmpty() && !endPoints.isEmpty())
-			{
-				findTheOs();
-			}
-			//If the obstacles have fully been avoided, recalculate the spiral path and continue with the program
-			else if(activelyAvoidingObstacles && googleMaps.isEmpty() && endPoints.isEmpty())
-			{
-				activelyAvoidingObstacles = false;
-				getPath(MIN_ROW, MAX_ROW, MIN_COL, MAX_COL, currentOrientation);
-			}
-		}
-		
-		//Bitshifting is OK here for some reason
+		//Bitshift to encode command for sending
 		digitalWrite(E, command & 1); 
 		digitalWrite(F, command>>1 & 1);
 		digitalWrite(G, command>>2 & 1);
@@ -874,130 +602,181 @@ void loop()
 		//Wait for the instruct line to switch to the correct value
 		delay(10);
 		
-		if(commandIndex > SPIRAL_END_STEP_ID)
+		//Update Orientation and position based on the prior command
+		if(command == 1)//We just drove straight
 		{
-			figureOutWhereTheCachesAre();
+			if(currentOrientation == 0) //North
+			{
+				CURRENT_ROW--;
+			}
+			else if(currentOrientation == 1) //East
+			{
+				CURRENT_COL++;
+			}
+			else if(currentOrientation == 2) //South
+			{
+				CURRENT_ROW++;
+			}
+			else //West
+			{
+				CURRENT_COL--;
+			}
 		}
-		
-		//Update command for future calculations
-		if(!findingCache)
+		else if(command == 2)//We just turned left
 		{
-			//Update Orientation and position based on the prior command
-			if(command == 1)//We just drove straight
+			if(currentOrientation == 0) //North
 			{
-				if(currentOrientation == 0) //North
-				{
-					CURRENT_ROW--;
-				}
-				else if(currentOrientation == 1) //East
-				{
-					CURRENT_COL++;
-				}
-				else if(currentOrientation == 2) //South
-				{
-					CURRENT_ROW++;
-				}
-				else //West
-				{
-					CURRENT_COL--;
-				}
+				CURRENT_ROW--;
 			}
-			else if(command == 2)//We just turned left
+			else if(currentOrientation == 1) //East
 			{
-				if(currentOrientation == 0) //North
-				{
-					CURRENT_ROW--;
-				}
-				else if(currentOrientation == 1) //East
-				{
-					CURRENT_COL++;
-				}
-				else if(currentOrientation == 2) //South
-				{
-					CURRENT_ROW++;
-				}
-				else //West
-				{
-					CURRENT_COL--;
-				}
-				
-				currentOrientation--;
-				if(currentOrientation < 0)
-				{
-					currentOrientation = 3;
-				}
+				CURRENT_COL++;
 			}
-			else if(command == 3)//We just turned right
+			else if(currentOrientation == 2) //South
 			{
-				if(currentOrientation == 0) //North
-				{
-					CURRENT_ROW--;
-				}
-				else if(currentOrientation == 1) //East
-				{
-					CURRENT_COL++;
-				}
-				else if(currentOrientation == 2) //South
-				{
-					CURRENT_ROW++;
-				}
-				else //West
-				{
-					CURRENT_COL--;
-				}
-				
-				currentOrientation++;
-				if(currentOrientation > 3)
-				{
-					currentOrientation = 0;
-				}
+				CURRENT_ROW++;
 			}
-			else if(command == 4)//We just turned around
+			else //West
 			{
-				if(currentOrientation == 0) //North
-				{
-					CURRENT_ROW--;
-				}
-				else if(currentOrientation == 1) //East
-				{
-					CURRENT_COL++;
-				}
-				else if(currentOrientation == 2) //South
-				{
-					CURRENT_ROW++;
-				}
-				else //West
-				{
-					CURRENT_COL--;
-				}
-				
-				currentOrientation += 2; //Turn full circle
-				if(currentOrientation > 3)//Orientation used to be 2 or 3, so now is 4 or 5.
-				{
-					currentOrientation -= 4; //wrap around compass rose accordingly
-				}
+				CURRENT_COL--;
 			}
-			else if(command == 7)
+			
+			currentOrientation--;
+			if(currentOrientation < 0)
 			{
-				if(currentOrientation == 0) //North
-				{
-					CURRENT_ROW++;
-				}
-				else if(currentOrientation == 1) //East
-				{
-					CURRENT_COL--;
-				}
-				else if(currentOrientation == 2) //South
-				{
-					CURRENT_ROW--;
-				}
-				else //West
-				{
-					CURRENT_COL++;
-				}
+				currentOrientation = 3;
+			}
+		}
+		else if(command == 3)//We just turned right
+		{
+			if(currentOrientation == 0) //North
+			{
+				CURRENT_ROW--;
+			}
+			else if(currentOrientation == 1) //East
+			{
+				CURRENT_COL++;
+			}
+			else if(currentOrientation == 2) //South
+			{
+				CURRENT_ROW++;
+			}
+			else //West
+			{
+				CURRENT_COL--;
+			}
+			
+			currentOrientation++;
+			if(currentOrientation > 3)
+			{
+				currentOrientation = 0;
+			}
+		}
+		else if(command == 4)//We just turned around
+		{
+			if(currentOrientation == 0) //North
+			{
+				CURRENT_ROW--;
+			}
+			else if(currentOrientation == 1) //East
+			{
+				CURRENT_COL++;
+			}
+			else if(currentOrientation == 2) //South
+			{
+				CURRENT_ROW++;
+			}
+			else //West
+			{
+				CURRENT_COL--;
+			}
+			
+			currentOrientation += 2; //Turn full circle
+			if(currentOrientation > 3)//Orientation used to be 2 or 3, so now is 4 or 5.
+			{
+				currentOrientation -= 4; //wrap around compass rose accordingly
+			}
+		}
+		else if(command == 7)
+		{
+			if(currentOrientation == 0) //North
+			{
+				CURRENT_ROW++;
+			}
+			else if(currentOrientation == 1) //East
+			{
+				CURRENT_COL--;
+			}
+			else if(currentOrientation == 2) //South
+			{
+				CURRENT_ROW--;
+			}
+			else //West
+			{
+				CURRENT_COL++;
 			}
 		}
 	}
 	
+	//Now that we have visited all of the inner 5x5, we should infer where the caches are.
+	figureOutWhereTheCachesAre();
+	
+	//Either go back to start, or open the cache
+	if(ENDGAME == 1)
+	{
+		goBackToStart();
+	}
+	else if(ENDGAME == 2)
+	{
+		travelToCache();
+	}
+	else if(ENDGAME == 3)
+	{
+		if(!(cache1_found || cache2_found))
+		{
+			//Go back to start
+			goBackToStart();
+		}
+		else //We found at least 1 cache, so let's open it
+		{
+			travelToCache();
+		}
+	}
+	
+	//Run code repeatedly based on what Google Maps tells us to do.
+	while(mapQuest.count() > 0)
+	{
+		while(digitalRead(moving) == LOW)//VERY IMPORTANT, waits until the robot_mgr is no longer actively moving the robot to assert more instructions
+		{ 
+			// Do whatever here while we wait 
+		}
+		
+		//Stops and waits for a smaller amount than before
+		delay(500);
+		
+		//Gets the next command from the queue.
+		command = mapQuest.pop();			
+		
+		//Bitshift to encode command for sending
+		digitalWrite(E, command & 1); 
+		digitalWrite(F, command>>1 & 1);
+		digitalWrite(G, command>>2 & 1);
+		
+		//Wait for the lines to actually be asserted with digitalWrite
+		delay(10);
+		
+		//Tell RobotManager that the instructions are ready to execute
+		digitalWrite(instruct, 0);
+		
+		while(digitalRead(moving) == 1) {}   //VERY IMPORTANT, waits until RobotManager realizes that it has incoming data
+		
+		//Disable the instruct line
+		digitalWrite(instruct, 1);
+		
+		//Wait for the instruct line to switch to the correct value
+		delay(10);
+	}
+	
+	//Looks like we are done
 	while(1){}  //terminate the program in an infinite loop, allows quick retesting of the robot_mgr
 }
