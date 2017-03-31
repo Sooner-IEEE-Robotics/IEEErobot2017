@@ -1,7 +1,14 @@
 #include <QueueList.h>
 #include "SoonerColorduinoMaster.h"
 
-//Decide which endgame to pursue. 0 = None, 1 = A7, 2 = Cache, 3 = Cache, unless no caches, then do A7
+//Decide which endgame to pursue. 
+/*
+0 = None (The only way to win is to not play)
+1 = A7 (Fall off the board)
+2 = Cache (???)
+3 = Cache, unless no caches found, then do Nothing
+4 = Cache, unless no caches found, then do A7
+*/
 #define ENDGAME 0
 
 //Message System (OUT)
@@ -214,8 +221,7 @@ void getPath(int top, int bottom, int left, int right, int direction)
 //Infer where the caches are based on the mapping of the inner squares
 void figureOutWhereTheCachesAre()
 {
-	
-	
+	//This is a list of the inner 5x5 borders, not actuall border rows
 	int row[4] = {1, 5, 1, 5};
 	for(int i = 0; i < 4; ++i)
 	{
@@ -398,15 +404,159 @@ void travelToCache()
 		
 		if(col_diff > 0)
 		{
-			if(col_diff < min_col_diff)
+			if(col_diff < min_col_diff && goodCacheFound)
 			{
-				bestR = cache1_row;
-				bestC = cache1_col;
+				bestR = cache2_row;
+				bestC = cache2_col;
 			}
+			else if(!goodCacheFound)
+			{
+				bestR = cache2_row;
+				bestC = cache2_col;
+				
+				goodCacheFound = true;
+			}
+		}
+		else if(!goodCacheFound && cache2_col > cache1_col)
+		{
+			bestR = cache2_row;
+			bestC = cache2_col;
 		}
 	}
 	
+	//Robot Coordinates
+	int simulated_col = CURRENT_COL;
+	int simulated_row = CURRENT_ROW;
+	
 	//Calculate path
+	if(!goodCacheFound)
+	{
+		//Turn around
+		mapQuest.push(6);//inch
+		mapQuest.push(2);//left
+		mapQuest.push(6);//inch
+		mapQuest.push(2);//left
+		
+		simulated_col++;
+		simulated_row--;
+	}
+	
+	//If the cache is on the North or south ends of the board
+	if(bestR == 0 || bestR == 6)
+	{
+		//Go forward until the robot is ready to turn toward the cache
+		int first_fwd = abs(simulated_col - bestC) - 1;
+		for(int i = 0; i < first_fwd; ++i)
+		{
+			mapQuest.push(1);//Forward
+		}
+		
+		//Turn to the cache
+		if(goodCacheFound)
+		{
+			if(bestR > simulated_row)
+			{
+				mapQuest.push(3);//Turn right (South)
+			}
+			else
+			{
+				mapQuest.push(2);//Turn left (North)
+			}
+		}
+		else
+		{
+			if(bestR > simulated_row)
+			{
+				mapQuest.push(2);//Turn left (South)
+			}
+			else
+			{
+				mapQuest.push(3);//Turn right (North)
+			}
+		}
+		
+		//Go forward until right before the cache
+		int next_fwd = abs(simulated_row - bestR) - 1;
+		for(int i = 0; i < next_fwd; ++i)
+		{
+			mapQuest.push(1);//Forward
+		}
+		
+	}
+	//Otherwise the cache is on the east or west end
+	else
+	{
+		mapQuest.push(6); //Inch forward
+		
+		//Turn parallel to the cache
+		if(goodCacheFound)
+		{
+			if(bestR > simulated_row)
+			{
+				mapQuest.push(3);//Turn right (South)
+			}
+			else
+			{
+				mapQuest.push(2);//Turn left (North)
+			}
+		}
+		else
+		{
+			if(bestR > simulated_row)
+			{
+				mapQuest.push(2);//Turn left (South)
+			}
+			else
+			{
+				mapQuest.push(3);//Turn right (North)
+			}
+		}
+		
+		//Drive until the row right below the cache
+		int next_fwd = abs(simulated_row - bestR) - 1;
+		for(int i = 0; i < next_fwd; ++i)
+		{
+			mapQuest.push(1);//Forward
+		}
+		
+		//Do the opposite turn of what we did first
+		if(goodCacheFound) //Turn West
+		{
+			if(bestR > simulated_row)
+			{
+				mapQuest.push(2);//Turn left
+			}
+			else
+			{
+				mapQuest.push(3);//Turn right
+			}
+		}
+		else //Turn East
+		{
+			if(bestR > simulated_row)
+			{
+				mapQuest.push(3);//Turn right
+			}
+			else
+			{
+				mapQuest.push(2);//Turn left
+			}
+		}
+		
+		//Drive to right before the cache
+		int first_fwd = abs(simulated_col - bestC) - 2; //Note the -2, we turned forward at the start
+		for(int i = 0; i < first_fwd; ++i)
+		{
+			mapQuest.push(1);//Forward
+		}
+		
+	}
+	
+	//General Cache Sequence
+	mapQuest.push(5); //Enter the cache sequence
+	mapQuest.push(1);//Drive up to the lid
+	mapQuest.push(3);//Open the cache
+	mapQuest.push(4);//Take a picture of the die
 }
 
 void printPath()
@@ -541,7 +691,7 @@ void setup()
 	CURRENT_ROW = 6;
 	currentOrientation = 1; //Reset this to east because we are actually facing that way.
 	
-	//Try multiple times to set the A7 led
+	//Try multiple times to set the A7 LED
 	scm.setPixelYellow(6,0);	
 	delay(10000);
 	scm.setPixelYellow(6,0);
@@ -558,6 +708,8 @@ void loop()
 {
 	//The command to send to the robot
 	int command = 0;
+	
+	//********************MAIN GAME****************************//
 	
 	//Run code repeatedly based on what Google Maps tells us to do.
 	while(googleMaps.count() > 0)
@@ -578,6 +730,22 @@ void loop()
 			
 			//Update the colorduino to show the main tunnel
 			scm.setPixelRed(CURRENT_ROW, CURRENT_COL);
+			
+			if(CURRENT_COL == 0 || CURRENT_COL == 6 || CURRENT_ROW == 0 || CURRENT_ROW == 6)
+			{
+				if(!cache1_found)
+				{
+					cache1_col = CURRENT_COL;
+					cache1_row = CURRENT_ROW;
+					cache1_found = true;
+				}
+				else if(!cache2_found)
+				{
+					cache2_col = CURRENT_COL;
+					cache2_row = CURRENT_ROW;
+					cache2_found = true;
+				}
+			}
 		}
 		
 		//Gets the next command from the queue.
@@ -718,6 +886,8 @@ void loop()
 		}
 	}
 	
+	//********************END MAIN GAME****************************//
+	
 	//Now that we have visited all of the inner 5x5, we should infer where the caches are.
 	figureOutWhereTheCachesAre();
 	
@@ -732,6 +902,15 @@ void loop()
 	}
 	else if(ENDGAME == 3)
 	{
+		if(cache1_found || cache2_found)
+		{
+			//Find the cache
+			travelToCache();
+		}
+		//If the above statement is false, the robot should do nothing
+	}
+	else if(ENDGAME == 4)
+	{
 		if(!(cache1_found || cache2_found))
 		{
 			//Go back to start
@@ -743,7 +922,11 @@ void loop()
 		}
 	}
 	
-	//Run code repeatedly based on what Google Maps tells us to do.
+	//Note that if ENDGAME == 0, the robot does nothing. Therefore we do not set mapQuest and the below loop does not occur
+	
+	//*************END GAME*************************//
+	
+	//Run code repeatedly based on what MapQuest tells us to do.
 	while(mapQuest.count() > 0)
 	{
 		while(digitalRead(moving) == LOW)//VERY IMPORTANT, waits until the robot_mgr is no longer actively moving the robot to assert more instructions

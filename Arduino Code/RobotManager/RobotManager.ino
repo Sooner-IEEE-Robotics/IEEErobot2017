@@ -609,16 +609,16 @@ void state_mgr(int instructions){
 				idle(1000);             //Sit still for a second
                 break;
               case 1:                         
-                forwardShort();				//Drive forward 1 square
+                forwardShort();				//Drive forward to the cache lid
                 break;
               case 2:
-                undoLeftTurn();				//Turn 90 degrees left
+                undoLeftTurn();				//Turn -90 degrees left
                 break;
               case 3:
-                openCache();				//Turn 90 degrees right
+                openCache();				//Open the cache lid
                 break;
               case 4:
-				camera();				//Do a full 180 degree turn
+				camera();				//Count the dots on the die
                 break;
               case 5:	
 				isCacheCommands = false;	//Switch to the other instruction set
