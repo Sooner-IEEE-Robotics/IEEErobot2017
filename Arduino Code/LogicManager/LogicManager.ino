@@ -445,7 +445,7 @@ void travelToCache()
 				mapQuest.push(6);//inch
 				mapQuest.push(3);//Turn right (South)
 			}
-			else
+			else if(bestR < simulated_row)
 			{
 				mapQuest.push(6);//inch
 				mapQuest.push(2);//Turn left (North)
@@ -458,7 +458,7 @@ void travelToCache()
 				mapQuest.push(6);//inch
 				mapQuest.push(2);//Turn left (South)
 			}
-			else
+			else if(bestR < simulated_row)
 			{
 				mapQuest.push(6);//inch
 				mapQuest.push(3);//Turn right (North)
@@ -485,7 +485,7 @@ void travelToCache()
 			{
 				mapQuest.push(3);//Turn right (South)
 			}
-			else
+			else if(bestR < simulated_row) 
 			{
 				mapQuest.push(2);//Turn left (North)
 			}
@@ -496,7 +496,7 @@ void travelToCache()
 			{
 				mapQuest.push(2);//Turn left (South)
 			}
-			else
+			else if(bestR < simulated_row)
 			{
 				mapQuest.push(3);//Turn right (North)
 			}

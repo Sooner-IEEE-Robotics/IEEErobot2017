@@ -18,7 +18,7 @@ double FORWARD_DIST = 11.2; //11.4
 double BACKWARD_DIST = -11.3;
 float DRIVE_STRAIGHT = 0;//1.1
 float LEFT_TURN  = 73.5;
-float RIGHT_TURN = -72.6;
+float RIGHT_TURN = -72.7;
 float FULL_TURN = 154;
 
 double STOP_SPEED_THRESHOLD = 0.2;
@@ -97,7 +97,7 @@ Servo arm;
 bool backwards = false;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
-float turnPID[3] = {0.14, 0.0001, 0.004}; 
+float turnPID[3] = {0.13, 0.0001, 0.005}; 
 float distPID[3] = {0.17, 0.000, 0.003}; 
 
 PIDController turningPID(0, turnPID);
