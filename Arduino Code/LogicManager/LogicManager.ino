@@ -282,15 +282,16 @@ void figureOutWhereTheCachesAre()
 							cache1_row = row[i] + 1;
 							cache1_col = col;
 						}
+						//These have to be inverted because we rotate the board to calculate them
 						else if(i == 2)
 						{
-							cache1_row = row[i];
-							cache1_col = col - 1;
+							cache1_row = col;
+							cache1_col = row[i] - 1;
 						}
 						else if(i == 3)
 						{
-							cache1_row = row[i];
-							cache1_col = col + 1;
+							cache1_row = col;
+							cache1_col = row[i] + 1;
 						}
 						
 						scm.setPixelRed(cache1_row, cache1_col);
@@ -310,15 +311,16 @@ void figureOutWhereTheCachesAre()
 							cache2_row = row[i] + 1;
 							cache2_col = col;
 						}
+						//These have to be inverted because we rotate the board to calculate them
 						else if(i == 2)
 						{
-							cache2_row = row[i];
-							cache2_col = col - 1;
+							cache2_row = col;
+							cache2_col = row[i] - 1;
 						}
 						else if(i == 3)
 						{
-							cache2_row = row[i];
-							cache2_col = col + 1;
+							cache2_row = col;
+							cache2_col = row[i] + 1;
 						}
 						
 						scm.setPixelRed(cache2_row, cache2_col);
@@ -440,10 +442,12 @@ void travelToCache()
 		{
 			if(bestR > simulated_row)
 			{
+				mapQuest.push(6);//inch
 				mapQuest.push(3);//Turn right (South)
 			}
 			else
 			{
+				mapQuest.push(6);//inch
 				mapQuest.push(2);//Turn left (North)
 			}
 		}
@@ -451,10 +455,12 @@ void travelToCache()
 		{
 			if(bestR > simulated_row)
 			{
+				mapQuest.push(6);//inch
 				mapQuest.push(2);//Turn left (South)
 			}
 			else
 			{
+				mapQuest.push(6);//inch
 				mapQuest.push(3);//Turn right (North)
 			}
 		}
@@ -502,6 +508,8 @@ void travelToCache()
 		{
 			mapQuest.push(1);//Forward
 		}
+		
+		mapQuest.push(6);//inch
 		
 		//Do the opposite turn of what we did first
 		if(goodCacheFound) //Turn West
