@@ -183,6 +183,23 @@ void loop()
 			//Update the colorduino to show the main tunnel
 			scm.setPixelRed(CURRENT_ROW, CURRENT_COL);
 			
+			if(CURRENT_ROW == 0)
+			{
+				scm.setPixelRed(CURRENT_ROW + 1, CURRENT_COL);
+			}
+			else if(CURRENT_ROW == 6)
+			{
+				scm.setPixelRed(CURRENT_ROW - 1, CURRENT_COL);
+			}
+			else if(CURRENT_COL == 0)
+			{
+				scm.setPixelRed(CURRENT_ROW, CURRENT_COL + 1);
+			}
+			else if(CURRENT_COL == 6)
+			{
+				scm.setPixelRed(CURRENT_ROW, CURRENT_COL - 1);
+			}
+			
 			if(!foundCacheBefore)
 			{
 				openingCache = true;
