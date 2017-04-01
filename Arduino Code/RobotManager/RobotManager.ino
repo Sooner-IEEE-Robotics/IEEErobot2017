@@ -14,11 +14,11 @@ float calVal;
 
 float gyroConvert = .978 * float(250)/(float(30500) * float(1000000.0));
 
-double FORWARD_DIST = 11.1; //11.4
+double FORWARD_DIST = 11.2; //11.4
 double BACKWARD_DIST = -11.3;
-float DRIVE_STRAIGHT = 0;//1.1
-float LEFT_TURN  = 73.35;
-float RIGHT_TURN = -72.7;
+float DRIVE_STRAIGHT = 0;
+float LEFT_TURN  = 73.25;
+float RIGHT_TURN = -72.4;
 float FULL_TURN = 154;
 
 double STOP_SPEED_THRESHOLD = 0.2;
@@ -403,7 +403,7 @@ void forwardShort()
 	backwards = false;
 	isTurnInPlace = false;
 	
-	distance_target = 6;
+	distance_target = 5.5;
 	targetYaw = 0;
 }
 
@@ -428,7 +428,7 @@ void openCache()
 	//Open the lid
 	arm.write(45);//Angle to set the arm so that it hits the lid is 45?
 	delay(1000);
-	arm.write(0);
+	arm.write(25);
 	delay(250);
 }
 
