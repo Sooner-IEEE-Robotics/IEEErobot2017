@@ -6,7 +6,7 @@
 //6050 7 bit address is 0x68
 //PWMGT address is 107; bit 6 controls sleep mode
 //z axis gryo is 71 and 72; low is 72, high is 71
-const int MPU_addr=0x68;  // I2C address of the MPU-6050
+const int MPU_addr = 0x68;  // I2C address of the MPU-6050
 double gyro = 0;
 long int t = millis();
 float testing = 100000;
@@ -14,11 +14,11 @@ float calVal;
 
 float gyroConvert = .978 * float(250)/(float(30500) * float(1000000.0));
 
-double FORWARD_DIST = 11.3; //11.4
+double FORWARD_DIST = 11.2; //11.4
 double BACKWARD_DIST = -11.3;
 float DRIVE_STRAIGHT = 0;//1.1
 float LEFT_TURN  = 73.5;
-float RIGHT_TURN = -72.35;
+float RIGHT_TURN = -72.325;
 float FULL_TURN = 154;
 
 double STOP_SPEED_THRESHOLD = 0.2;
@@ -403,7 +403,7 @@ void forwardShort()
 	backwards = false;
 	isTurnInPlace = false;
 	
-	distance_target = 3;
+	distance_target = 7;
 	targetYaw = 0;
 }
 
@@ -419,7 +419,7 @@ void backHalf()
 void openCache()
 {
 	backwards = false;
-	distance_target = .75; //Setup for the camera
+	distance_target = 1; //Setup for the camera
 	targetYaw = 0;
 	isTurnInPlace = false;
 	

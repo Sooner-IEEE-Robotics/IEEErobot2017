@@ -97,11 +97,13 @@ void getPath(int top, int bottom, int left, int right, int direction)
 		
 		if(r == (topEdge+1) && directionOfTravel == 0) //If we are going north at the top of the board.
 		{
+			/**
 			if(topEdge == 1)
 			{
 				googleMaps.push(1);
 				googleMaps.push(7);
 			}
+			**/
 			googleMaps.push(6); //Go an inch for tankSteer
 			googleMaps.push(3); //turn right
 			//googleMaps.push(1); //drive straight
@@ -114,11 +116,13 @@ void getPath(int top, int bottom, int left, int right, int direction)
 		}
 		else if(r == (botEdge-1) && directionOfTravel == 2) //If we are going south at the bottom of the board
 		{
+			/**
 			if(botEdge == 5)
 			{
 				googleMaps.push(1);
 				googleMaps.push(7);
 			}
+			**/
 			googleMaps.push(6); //Go an inch for tankSteer
 			googleMaps.push(3); //turn right
 			//googleMaps.push(1); //drive straight
@@ -131,6 +135,7 @@ void getPath(int top, int bottom, int left, int right, int direction)
 		}
 		else if(c == (leftEdge+1) && directionOfTravel == 3)//If we are going West at the left of the board
 		{
+			/**
 			if(leftEdge == 2)
 			{
 				googleMaps.push(1);
@@ -138,6 +143,7 @@ void getPath(int top, int bottom, int left, int right, int direction)
 				googleMaps.push(7);
 				googleMaps.push(7);
 			}
+			**/
 			googleMaps.push(6); //Go an inch for tankSteer
 			googleMaps.push(3); //turn right
 			//googleMaps.push(1); //drive straight
@@ -150,11 +156,13 @@ void getPath(int top, int bottom, int left, int right, int direction)
 		}
 		else if(c == (rightEdge-1) && directionOfTravel == 1)//If we are going east at the right of the board
 		{
+			/*
 			if(rightEdge == 5)
 			{
 				googleMaps.push(1);
 				googleMaps.push(7);
 			}
+			*/
 			googleMaps.push(6); //Go an inch for tankSteer
 			googleMaps.push(3); //turn left
 			//googleMaps.push(1); //drive straight
@@ -193,7 +201,7 @@ void getPath(int top, int bottom, int left, int right, int direction)
 //Infer where the caches are based on the mapping of the inner squares
 void figureOutWhereTheCachesAre()
 {
-	//This is a list of the inner 5x5 borders, not actuall border rows
+	//This is a list of the inner 5x5 borders, not actual border rows
 	int row[4] = {1, 5, 1, 5};
 	for(int i = 0; i < 4; ++i)
 	{
@@ -258,8 +266,8 @@ void figureOutWhereTheCachesAre()
 				//How many neighboring squares are metal?
 				int sum = top_stats + bot_stats + left_stats + right_stats;
 				
-				//If less than 2 neighbors have metal, this is probably a cache
-				if(sum < 2)
+				//If there is only one neighbor with metal, we found a cache
+				if(sum == 1)
 				{
 					//If the first cache hasnt been found yet
 					if(!cache1_found)
@@ -286,6 +294,8 @@ void figureOutWhereTheCachesAre()
 						}
 						
 						scm.setPixelRed(cache1_row, cache1_col);
+						
+						cache1_found = true;
 					}
 					//If the second hasnt been found but the first has
 					else if(!cache2_found)
@@ -312,6 +322,8 @@ void figureOutWhereTheCachesAre()
 						}
 						
 						scm.setPixelRed(cache2_row, cache2_col);
+						
+						cache2_found = true;
 					}
 				}
 			}
