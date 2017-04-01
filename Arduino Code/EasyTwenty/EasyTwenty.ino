@@ -6,6 +6,9 @@ int E = 9, F = 10, G = 11, instruct = 12;
 int moving = 8;
 int indicator = 13;
 
+//Go Button
+int goButtonPin = 2;
+
 //Go forward and back
 QueueList<byte> appleMaps;
 
@@ -14,6 +17,10 @@ SoonerColorduinoMaster scm;
 
 void setup() 
 {
+	//Go Button
+	pinMode(goButtonPin, INPUT);
+	digitalWrite(goButtonPin, HIGH); //Pull up resistor
+	
 	//Comms pins
 	pinMode(E, OUTPUT);//bit 0        //output pins for the states
 	pinMode(F, OUTPUT);//bit 1
@@ -27,21 +34,19 @@ void setup()
 	digitalWrite(F, 0);
 	digitalWrite(G, 0);
 	
-	//Metal Detection
-	pinMode(metalDetectorPin, INPUT);
-	
 	appleMaps.push(1);
 	appleMaps.push(7);
+	appleMaps.push(5);
+	appleMaps.push(4); //Take a picture to get points maybe
 	
 	//Try multiple times to set the A7 LED
 	scm.setPixelYellow(6,0);	
 	delay(10000);
 	scm.setPixelYellow(6,0);
 	
-	while(digitalRead(goButtonPin) == LOW)
+	while(digitalRead(goButtonPin) == HIGH)
 	{
 		scm.setPixelYellow(6,0);
-		delay(50);
 	}
 	delay(1000);
 }

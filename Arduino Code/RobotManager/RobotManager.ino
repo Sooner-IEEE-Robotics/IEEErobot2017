@@ -14,7 +14,7 @@ float calVal;
 
 float gyroConvert = .978 * float(250)/(float(30500) * float(1000000.0));
 
-double FORWARD_DIST = 11.3; //11.4
+double FORWARD_DIST = 11.35;
 double BACKWARD_DIST = -11.3;
 float DRIVE_STRAIGHT = 0;
 float LEFT_TURN  = 73.25;
@@ -97,8 +97,8 @@ Servo arm;
 bool backwards = false;
 
 //Stores the PID constants for driving a distance and turning. [kP, kI, kD]
-float turnPID[3] = {0.13, 0.0001, 0.005}; 
-float distPID[3] = {0.17, 0.000, 0.003}; 
+float turnPID[3] = {0.13, 0.0001, 0.006}; 
+float distPID[3] = {0.15, 0.000, 0.003}; 
 
 PIDController turningPID(0, turnPID);
 PIDController distancePID(0, distPID);
