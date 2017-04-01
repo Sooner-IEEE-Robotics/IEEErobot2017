@@ -14,11 +14,11 @@ float calVal;
 
 float gyroConvert = .978 * float(250)/(float(30500) * float(1000000.0));
 
-double FORWARD_DIST = 11.2; //11.4
+double FORWARD_DIST = 11.1; //11.4
 double BACKWARD_DIST = -11.3;
 float DRIVE_STRAIGHT = 0;//1.1
-float LEFT_TURN  = 73.5;
-float RIGHT_TURN = -73;
+float LEFT_TURN  = 73.35;
+float RIGHT_TURN = -72.7;
 float FULL_TURN = 154;
 
 double STOP_SPEED_THRESHOLD = 0.2;
@@ -180,7 +180,7 @@ void tankSteer(float turn_power)
 	{
 		if(targetYaw > 0)
 		{
-			right = 0;
+			right = 0.1;
 			left = turn_power;
 		}
 		else if(targetYaw < 0)
@@ -198,7 +198,7 @@ void tankSteer(float turn_power)
 	{
 		if(targetYaw < 0)
 		{
-			right = 0;
+			right = -0.1;
 			left = turn_power;
 		}
 		else if(targetYaw > 0)
@@ -403,7 +403,7 @@ void forwardShort()
 	backwards = false;
 	isTurnInPlace = false;
 	
-	distance_target = 4.5;
+	distance_target = 6;
 	targetYaw = 0;
 }
 

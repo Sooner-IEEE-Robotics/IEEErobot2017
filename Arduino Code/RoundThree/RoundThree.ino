@@ -63,9 +63,8 @@ QueueList<byte> mapQuest;
 int board[49];
 
 //Variables to find the caches
-bool cache1_found = false, cache2_found = false;
-int cache1_row, cache1_col;
-int cache2_row, cache2_col;
+bool foundCacheBefore = false;
+bool openingCache = false;
 
 void initBoard()
 {
@@ -95,6 +94,20 @@ void makeASquare()
 	}
 }
 
+void cacheSequence()
+{
+	//Back off the square
+	mapQuest.push(7);
+	//General Cache Sequence
+	mapQuest.push(5); //Enter the cache sequence
+	mapQuest.push(1);//Drive up to the lid
+	mapQuest.push(3);//Open the cache
+	mapQuest.push(4);//Take a picture of the die
+	//Go back to normal
+	mapQuest.push(5);
+	mapQuest.push(6);
+}
+
 void setup() 
 {	
 	//Go Button
@@ -121,6 +134,10 @@ void setup()
 	Serial.println("Calculating Route...");
 	
 	initBoard();
+	
+	//Setup the two sequences
+	makeASquare();
+	cacheSequence();
 	
 	//Reset the coordinates back to the real coordinates
 	CURRENT_COL = 0;
@@ -166,25 +183,30 @@ void loop()
 			//Update the colorduino to show the main tunnel
 			scm.setPixelRed(CURRENT_ROW, CURRENT_COL);
 			
-			if(CURRENT_COL == 0 || CURRENT_COL == 6 || CURRENT_ROW == 0 || CURRENT_ROW == 6)
+			if(!foundCacheBefore)
 			{
-				if(!cache1_found)
-				{
-					cache1_col = CURRENT_COL;
-					cache1_row = CURRENT_ROW;
-					cache1_found = true;
-				}
-				else if(!cache2_found)
-				{
-					cache2_col = CURRENT_COL;
-					cache2_row = CURRENT_ROW;
-					cache2_found = true;
-				}
+				openingCache = true;
+				foundCacheBefore = true;
 			}
 		}
 		
 		//Gets the next command from the queue.
-		command = googleMaps.pop();			
+		//If we are trying to open the cache
+		if(openingCache)
+		{
+			command = mapQuest.pop();
+			
+			//Return to normal if we have gone through the full sequence
+			if(mapQuest.count() == 0)
+			{
+				openingCache = false;
+			}
+		}
+		//Normal Operation
+		else
+		{
+			command = googleMaps.pop();	
+		}	
 		
 		//Bitshift to encode command for sending
 		digitalWrite(E, command & 1); 

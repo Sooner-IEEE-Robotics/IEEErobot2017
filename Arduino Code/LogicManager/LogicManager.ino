@@ -517,9 +517,14 @@ void travelToCache()
 			mapQuest.push(1);//Forward
 		}
 		
+		int first_fwd;
+		
 		//Do the opposite turn of what we did first
 		if(goodCacheFound) //Turn West
 		{
+			//Drive to right before the cache
+			first_fwd = abs(simulated_col - bestC) - 2;
+				
 			if(bestR > simulated_row)
 			{
 				mapQuest.push(6);//inch
@@ -529,10 +534,17 @@ void travelToCache()
 			{
 				mapQuest.push(6);//inch
 				mapQuest.push(3);//Turn right
+			}
+			else
+			{
+				//Drive to right before the cache
+				first_fwd = abs(simulated_col - bestC) - 1;
 			}
 		}
 		else //Turn East
 		{
+			first_fwd = abs(simulated_col - bestC) - 2;
+			
 			if(bestR > simulated_row)
 			{
 				mapQuest.push(6); //Inch forward
@@ -543,10 +555,14 @@ void travelToCache()
 				mapQuest.push(6); //Inch forward
 				mapQuest.push(2);//Turn left
 			}
+			else
+			{
+				//Drive to right before the cache
+				first_fwd = abs(simulated_col - bestC) - 1;
+			}
 		}
 		
-		//Drive to right before the cache
-		int first_fwd = abs(simulated_col - bestC) - 2; //Note the -2, we turned forward at the start
+		
 		for(int i = 0; i < first_fwd; ++i)
 		{
 			mapQuest.push(1);//Forward
