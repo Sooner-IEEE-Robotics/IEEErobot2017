@@ -18,7 +18,7 @@ double FORWARD_DIST = 11.2; //11.4
 double BACKWARD_DIST = -11.3;
 float DRIVE_STRAIGHT = 0;//1.1
 float LEFT_TURN  = 73.5;
-float RIGHT_TURN = -72.7;
+float RIGHT_TURN = -73;
 float FULL_TURN = 154;
 
 double STOP_SPEED_THRESHOLD = 0.2;
@@ -403,7 +403,7 @@ void forwardShort()
 	backwards = false;
 	isTurnInPlace = false;
 	
-	distance_target = 5.5;
+	distance_target = 4.5;
 	targetYaw = 0;
 }
 
@@ -421,7 +421,7 @@ void openCache()
 	arm.attach(armPin);
 	
 	backwards = false;
-	distance_target = 1; //Setup for the camera
+	distance_target = 2; //Setup for the camera
 	targetYaw = 0;
 	isTurnInPlace = false;
 	

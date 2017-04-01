@@ -205,7 +205,7 @@ void figureOutWhereTheCachesAre()
 	int row[4] = {1, 5, 1, 5};
 	for(int i = 0; i < 4; ++i)
 	{
-		for(int col = 2; col < 5; ++col)
+		for(int col = 1; col < 6; ++col)
 		{
 			int index;
 			//Translate the 1D array into 2D
@@ -296,7 +296,10 @@ void figureOutWhereTheCachesAre()
 						
 						scm.setPixelRed(cache1_row, cache1_col);
 						
-						cache1_found = true;
+						if(!(col == 1 || col == 5))
+						{
+							cache1_found = true;
+						}
 					}
 					//If the second hasnt been found but the first has
 					else if(!cache2_found)
@@ -325,7 +328,10 @@ void figureOutWhereTheCachesAre()
 						
 						scm.setPixelRed(cache2_row, cache2_col);
 						
-						cache2_found = true;
+						if(!(col == 1 || col == 5))
+						{
+							cache2_found = true;
+						}
 					}
 				}
 			}
@@ -476,17 +482,17 @@ void travelToCache()
 	//Otherwise the cache is on the east or west end
 	else
 	{
-		mapQuest.push(6); //Inch forward
-		
 		//Turn parallel to the cache
 		if(goodCacheFound)
 		{
 			if(bestR > simulated_row)
 			{
+				mapQuest.push(6); //Inch forward
 				mapQuest.push(3);//Turn right (South)
 			}
 			else if(bestR < simulated_row) 
 			{
+				mapQuest.push(6); //Inch forward
 				mapQuest.push(2);//Turn left (North)
 			}
 		}
@@ -494,10 +500,12 @@ void travelToCache()
 		{
 			if(bestR > simulated_row)
 			{
+				mapQuest.push(6); //Inch forward
 				mapQuest.push(2);//Turn left (South)
 			}
 			else if(bestR < simulated_row)
 			{
+				mapQuest.push(6); //Inch forward
 				mapQuest.push(3);//Turn right (North)
 			}
 		}
@@ -509,17 +517,17 @@ void travelToCache()
 			mapQuest.push(1);//Forward
 		}
 		
-		mapQuest.push(6);//inch
-		
 		//Do the opposite turn of what we did first
 		if(goodCacheFound) //Turn West
 		{
 			if(bestR > simulated_row)
 			{
+				mapQuest.push(6);//inch
 				mapQuest.push(2);//Turn left
 			}
-			else
+			else if(bestR < simulated_row)
 			{
+				mapQuest.push(6);//inch
 				mapQuest.push(3);//Turn right
 			}
 		}
@@ -527,10 +535,12 @@ void travelToCache()
 		{
 			if(bestR > simulated_row)
 			{
+				mapQuest.push(6); //Inch forward
 				mapQuest.push(3);//Turn right
 			}
-			else
+			else if(bestR < simulated_row)
 			{
+				mapQuest.push(6); //Inch forward
 				mapQuest.push(2);//Turn left
 			}
 		}
