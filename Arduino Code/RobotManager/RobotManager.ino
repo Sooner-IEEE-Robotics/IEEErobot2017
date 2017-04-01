@@ -14,7 +14,7 @@ float calVal;
 
 float gyroConvert = .978 * float(250)/(float(30500) * float(1000000.0));
 
-double FORWARD_DIST = 11.4; 
+double FORWARD_DIST = 11.3; //11.4
 double BACKWARD_DIST = -11.3;
 float DRIVE_STRAIGHT = 0;//1.1
 float LEFT_TURN  = 73.5;

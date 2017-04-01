@@ -9,7 +9,7 @@
 3 = Cache, unless no caches found, then do Nothing
 4 = Cache, unless no caches found, then do A7
 */
-#define ENDGAME 0
+#define ENDGAME 2
 
 //Message System (OUT)
 int E = 9, F = 10, G = 11, instruct = 12;
@@ -188,34 +188,6 @@ void getPath(int top, int bottom, int left, int right, int direction)
 			}
 		}
 	}
-	
-	//Go back to start
-	//3 back ups
-	googleMaps.push(7);
-	googleMaps.push(7);
-	googleMaps.push(7);
-	
-	//Inch forward
-	//googleMaps.push(6);
-	
-	//Turn right
-	googleMaps.push(3);
-	
-	//Drive forward 2 times
-	googleMaps.push(1);
-	googleMaps.push(1);
-	
-	//Inch forward
-	//googleMaps.push(6);
-	
-	//Turn Right
-	googleMaps.push(3);
-	
-	//Forward
-	googleMaps.push(1);
-	googleMaps.push(1);
-	
-	//DONE!
 }
 
 //Infer where the caches are based on the mapping of the inner squares
@@ -645,8 +617,7 @@ void setup()
 {	
 	//Go Button
 	pinMode(goButtonPin, INPUT);
-	//Pull down resistor to be safe
-	digitalWrite(goButtonPin, LOW);
+	digitalWrite(goButtonPin, HIGH); //Pull up resistor
 	
 	//Comms pins
 	pinMode(E, OUTPUT);//bit 0        //output pins for the states
@@ -696,10 +667,9 @@ void setup()
 	delay(10000);
 	scm.setPixelYellow(6,0);
 	
-	while(digitalRead(goButtonPin) == LOW)
+	while(digitalRead(goButtonPin) == HIGH)
 	{
 		scm.setPixelYellow(6,0);
-		delay(50);
 	}
 	delay(1000);
 }

@@ -15,8 +15,9 @@ void setup()
 {	
 	//Go Button
 	pinMode(goButtonPin, INPUT);
-	//Pull down resistor to be safe
-	digitalWrite(goButtonPin, LOW);
+	digitalWrite(goButtonPin, HIGH);
+	
+	Serial.begin(9600);
 	
 	//Comms pins
 	pinMode(E, OUTPUT);//bit 0        //output pins for the states
@@ -36,7 +37,7 @@ void setup()
 	delay(10000);
 	scm.setPixelYellow(6,0);
 	
-	while(digitalRead(goButtonPin) == LOW)
+	while(digitalRead(goButtonPin) == HIGH)
 	{
 		scm.setPixelYellow(6,0);
 		delay(50);
@@ -46,7 +47,9 @@ void setup()
 
 void loop() 
 {
-	if(digitalRead(goButtonPin) == HIGH)
+	Serial.println(digitalRead(goButtonPin));
+	
+	if(digitalRead(goButtonPin) == LOW)
 	{
 		scm.setPixelRed(6,0);
 	}
